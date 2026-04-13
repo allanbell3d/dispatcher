@@ -91,27 +91,42 @@ function Get-SessionPrefix {
 }
 
 function Resolve-OrcPath([string]$Key) {
-    if (-not $Config -or -not $Config.paths -or -not $Config.paths[$Key]) { return $null }
-    return Join-Path $ProjectRoot $Config.paths[$Key]
+    if (-not $Config -or -not $Config.paths) { return $null }
+    $lookup = @{
+        "logs_dir" = "logs"
+        "runtime_dir" = "runtime_flags"
+        "current_task_file" = "current_task"
+        "plan_file" = "plans"
+        "diffs_dir" = "diffs"
+    }
+    $effectiveKey = if ($lookup.ContainsKey($Key)) { $lookup[$Key] } else { $Key }
+    if (-not $Config.paths[$effectiveKey]) { return $null }
+    return Join-Path $ProjectRoot $Config.paths[$effectiveKey]
+}
+
+function Get-ConfiguredPath([string]$Key, [string]$FallbackRelative) {
+    $resolved = Resolve-OrcPath $Key
+    if ($resolved) { return $resolved }
+    return Join-Path $ProjectRoot $FallbackRelative
 }
 
 # Paths derived from config
-$LogsDir         = Resolve-OrcPath "logs_dir"
+$LogsDir         = Get-ConfiguredPath "logs" ".orchestrator\logs"
 $RuntimeDir      = Resolve-OrcPath "runtime_dir"
-$TasksFile       = Resolve-OrcPath "tasks_file"
-$CurrentTaskFile = Resolve-OrcPath "current_task_file"
-$PlanFile        = Resolve-OrcPath "plan_file"
-$ApprovalsDir    = Resolve-OrcPath "approvals_dir"
-$DiffsDir        = Resolve-OrcPath "diffs_dir"
+$TasksPath       = Get-ConfiguredPath "tasks" ".orchestrator\tasks"
+$CurrentTaskFile = Resolve-OrcPath "current_task"
+$PlanFile        = Resolve-OrcPath "plans"
+$VerdictsDir     = Get-ConfiguredPath "merged_verdicts" ".orchestrator\merged_verdicts"
+$DiffsDir        = Resolve-OrcPath "diffs"
 
 # Fixed paths (not in config)
-$HaltsDir          = Join-Path $OrcDir "halts"
-$RuntimeFlagsDir   = Join-Path $OrcDir "runtime_flags"
-$MergedVerdictsDir = Join-Path $OrcDir "merged_verdicts"
-$TrackersFile      = Join-Path $OrcDir "trackers.json"
+$HaltsDir          = Get-ConfiguredPath "halts" ".orchestrator\halts"
+$RuntimeFlagsDir   = Get-ConfiguredPath "runtime_flags" ".orchestrator\runtime_flags"
+$MergedVerdictsDir = Get-ConfiguredPath "merged_verdicts" ".orchestrator\merged_verdicts"
+$TrackersFile      = Get-ConfiguredPath "trackers" ".orchestrator\trackers.json"
 $SprintProfilesDir = Join-Path $OrcDir "sprint_profiles"
-$AuditLogPath      = if ($LogsDir) { Join-Path $LogsDir "audit.log" } else { $null }
-$DecisionTracePath = if ($LogsDir) { Join-Path $LogsDir "decision_trace.log" } else { $null }
+$AuditLogPath      = Get-ConfiguredPath "audit_log" ".orchestrator\audit.log"
+$DecisionTracePath = Get-ConfiguredPath "decision_trace" ".orchestrator\logs\decision_trace.log"
 
 $RolesJsonPath     = Join-Path $env:USERPROFILE ".claude\hooks\roles.json"
 $SettingsLocalPath = Join-Path $ProjectRoot ".claude\settings.local.json"
@@ -471,7 +486,7 @@ function Get-CurrentTaskInfo {
     }
     try {
         $task = Get-Content $CurrentTaskFile -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
-        $id = if ($task["id"]) { $task["id"] } else { "?" }
+        $id = if ($task["task_id"]) { $task["task_id"] } elseif ($task["id"]) { $task["id"] } else { "?" }
         $title = if ($task["title"]) { $task["title"] } else { "untitled" }
         return "$id - `"$title`""
     } catch { return "Error reading task" }
@@ -561,7 +576,9 @@ function Show-SprintStatusFull {
         if ($CurrentTaskFile -and (Test-Path $CurrentTaskFile)) {
             try {
                 $ct = Get-Content $CurrentTaskFile -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
-                if ($ct["assigned_to"] -eq $a) { $taskInfo = $ct["id"] }
+                if (-not $ct["assigned_to"] -or $ct["assigned_to"] -eq $a) {
+                    $taskInfo = if ($ct["task_id"]) { $ct["task_id"] } elseif ($ct["id"]) { $ct["id"] } else { "-" }
+                }
             } catch {}
         }
 
@@ -592,7 +609,7 @@ function Show-SprintStatusFull {
         $verdict = "-"
         $verdictFiles = @()
         if (Test-Path $MergedVerdictsDir) {
-            $verdictFiles = Get-ChildItem -LiteralPath $MergedVerdictsDir -Filter "*$a*" -File -ErrorAction SilentlyContinue
+            $verdictFiles = Get-ChildItem -LiteralPath $MergedVerdictsDir -Filter "*.json" -File -ErrorAction SilentlyContinue
         }
         if ($verdictFiles.Count -gt 0) {
             $latestV = $verdictFiles | Sort-Object LastWriteTime -Descending | Select-Object -First 1
@@ -615,7 +632,7 @@ function Show-SprintStatusFull {
         }
 
         # Halt check
-        $halted = Test-Path (Join-Path $HaltsDir "$a.halt")
+        $halted = Test-Path (Join-Path $HaltsDir "$a.flag")
         $haltTag = if ($halted) { " [HALTED]" } else { "" }
 
         Write-Host ($fmt -f "$a$haltTag", $taskInfo, $inboxCount, $fanIn, $verdict, $lastActivity) -ForegroundColor $(if ($halted) { "Yellow" } else { "White" })
@@ -772,8 +789,10 @@ function Invoke-ResumeStuckTask {
     & $PYTHON_EXE $orchCtl status 2>&1 | ForEach-Object { Write-Host "  $_" }
     Write-Host ""
     $agentName = Prompt-TextValue -Prompt "  Agent name to resume" -AllowEmpty:$false
-    $taskId = Prompt-TextValue -Prompt "  Task ID to resume" -AllowEmpty:$false
-    & $PYTHON_EXE $orchCtl resume --agent $agentName --task $taskId 2>&1 | ForEach-Object { Write-Host "  $_" }
+    $refan = Prompt-YesNo -Prompt "  Re-fan review requests for current task?" -DefaultYes:$false
+    $orchArgs = @("resume", "--agent", $agentName)
+    if ($refan) { $orchArgs += "--refan" }
+    & $PYTHON_EXE $orchCtl @orchArgs 2>&1 | ForEach-Object { Write-Host "  $_" }
     Pause-Notice ""
 }
 
@@ -802,8 +821,14 @@ function Invoke-ClearHaltFlags {
     Write-Host ""
     $orchCtl = Join-Path $EngineRoot "scripts\orchestratorctl.py"
     if (Test-Path $orchCtl) {
-        # Delegate to orchestratorctl for audit trail
-        & $PYTHON_EXE $orchCtl resume --all 2>&1 | ForEach-Object { Write-Host "  $_" }
+        $agents = Get-AgentNames
+        if ($agents.Count -eq 0) {
+            Write-Host "  No configured agents found." -ForegroundColor DarkGray
+        } else {
+            foreach ($agentName in $agents) {
+                & $PYTHON_EXE $orchCtl resume --agent $agentName 2>&1 | ForEach-Object { Write-Host "  $_" }
+            }
+        }
     } else {
         # Fallback: direct removal if orchestratorctl not available
         if (-not (Test-Path $HaltsDir)) {
@@ -811,7 +836,7 @@ function Invoke-ClearHaltFlags {
             Pause-Notice ""
             return
         }
-        $halts = Get-ChildItem -LiteralPath $HaltsDir -Filter "*.halt" -File -ErrorAction SilentlyContinue
+        $halts = Get-ChildItem -LiteralPath $HaltsDir -Filter "*.flag" -File -ErrorAction SilentlyContinue
         if ($halts.Count -eq 0) {
             Write-Host "  No halt flags found." -ForegroundColor DarkGray
         } else {
@@ -828,10 +853,12 @@ function Invoke-ClearHaltFlags {
 $ORCHESTRATOR_HOOKS = @(
     "dispatch_gate",
     "inbox_access_guard",
-    "monitor_ingest",
     "check_gate",
-    "commit_tag_enforcer",
-    "diff_capture"
+    "activity_logger",
+    "monitor_ingest",
+    "dispatch_next_bug",
+    "on_file_message",
+    "stop_notify"
 )
 
 function Get-HookFlagDir {
@@ -1521,19 +1548,19 @@ function Invoke-ChangeProject {
     $script:Config = Load-Config
 
     # Re-derive all paths
-    $script:LogsDir = Resolve-OrcPath "logs_dir"
+    $script:LogsDir = Get-ConfiguredPath "logs" ".orchestrator\logs"
     $script:RuntimeDir = Resolve-OrcPath "runtime_dir"
-    $script:TasksFile = Resolve-OrcPath "tasks_file"
-    $script:CurrentTaskFile = Resolve-OrcPath "current_task_file"
-    $script:PlanFile = Resolve-OrcPath "plan_file"
-    $script:ApprovalsDir = Resolve-OrcPath "approvals_dir"
-    $script:DiffsDir = Resolve-OrcPath "diffs_dir"
-    $script:HaltsDir = Join-Path $script:OrcDir "halts"
-    $script:RuntimeFlagsDir = Join-Path $script:OrcDir "runtime_flags"
-    $script:MergedVerdictsDir = Join-Path $script:OrcDir "merged_verdicts"
-    $script:TrackersFile = Join-Path $script:OrcDir "trackers.json"
+    $script:TasksPath = Get-ConfiguredPath "tasks" ".orchestrator\tasks"
+    $script:CurrentTaskFile = Resolve-OrcPath "current_task"
+    $script:PlanFile = Resolve-OrcPath "plans"
+    $script:VerdictsDir = Get-ConfiguredPath "merged_verdicts" ".orchestrator\merged_verdicts"
+    $script:DiffsDir = Resolve-OrcPath "diffs"
+    $script:HaltsDir = Get-ConfiguredPath "halts" ".orchestrator\halts"
+    $script:RuntimeFlagsDir = Get-ConfiguredPath "runtime_flags" ".orchestrator\runtime_flags"
+    $script:MergedVerdictsDir = Get-ConfiguredPath "merged_verdicts" ".orchestrator\merged_verdicts"
+    $script:TrackersFile = Get-ConfiguredPath "trackers" ".orchestrator\trackers.json"
     $script:SprintProfilesDir = Join-Path $script:OrcDir "sprint_profiles"
-    $script:AuditLogPath = if ($script:LogsDir) { Join-Path $script:LogsDir "audit.log" } else { $null }
+    $script:AuditLogPath = Get-ConfiguredPath "audit_log" ".orchestrator\audit.log"
     $script:DecisionTracePath = if ($script:LogsDir) { Join-Path $script:LogsDir "decision_trace.log" } else { $null }
     $script:SettingsLocalPath = Join-Path $target ".claude\settings.local.json"
 
@@ -1966,14 +1993,14 @@ function Invoke-SprintPause {
         $a = $agent["name"]
         $isExecutor = $agent.ContainsKey("executor") -and $agent["executor"] -eq $true
         if ($isExecutor) {
-            $haltFile = Join-Path $HaltsDir "$a.halt"
+            $haltFile = Join-Path $HaltsDir "$a.flag"
             "sprint paused" | Set-Content $haltFile -Encoding UTF8
             Write-Host "    Halted: $a" -ForegroundColor DarkGray
         } else {
             Write-Host "    Skipped: $a (not executor)" -ForegroundColor DarkGray
         }
     }
-    Write-Host "  Sprint paused (coders halted). Watcher + reviewers continue." -ForegroundColor Yellow
+    Write-Host "  Sprint paused (coders halted via .flag). Watcher + reviewers continue." -ForegroundColor Yellow
     Pause-Notice ""
 }
 
@@ -1981,7 +2008,7 @@ function Invoke-SprintResume {
     Write-Host ""
     Write-Host "  Resuming sprint..." -ForegroundColor Green
     if (Test-Path $HaltsDir) {
-        Get-ChildItem -LiteralPath $HaltsDir -Filter "*.halt" -File -ErrorAction SilentlyContinue |
+        Get-ChildItem -LiteralPath $HaltsDir -Filter "*.flag" -File -ErrorAction SilentlyContinue |
             Remove-Item -Force
         Write-Host "    All halt flags cleared." -ForegroundColor Green
     }
@@ -2067,7 +2094,7 @@ function Build-MainMenu {
     $items += New-MenuItem -Label "10. Attach to Session"         -Value @{ type="attach_session_menu" }
     $items += New-MenuItem -Label "11. Resume Stuck Task..."      -Value @{ type="resume_stuck_task" }
     $items += New-MenuItem -Label "12. Override Verdict..."       -Value @{ type="override_verdict" }
-    $items += New-MenuItem -Label "13. Clear Halt Flags"          -Value @{ type="clear_halt_flags" }
+    $items += New-MenuItem -Label "13. Clear Halt Flags (.flag)"  -Value @{ type="clear_halt_flags" }
     $items += New-MenuItem -Label " " -Value $null -Selectable:$false
 
     # Hook Control

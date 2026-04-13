@@ -23,6 +23,11 @@ build/
 
 # ── Temp & swap files ─────────────────────────
 .omc/
+.pytest_tmp/
+.pytest_cache/
+pytest-cache-files-*/
+.orchestrator/audit.log
+.orchestrator/logs/*.log
 *.tmp
 *.swp
 *.swo

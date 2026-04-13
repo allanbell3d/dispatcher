@@ -1,70 +1,96 @@
 # CLI Commands
 
-All commands via `orchestratorctl.py` or `.orchestrator/bin/orch.ps1`.
+All commands run from the repo root. Python commands require the engine root on `sys.path`.
+
+**Note:** As of v0.1.10, all Python commands fail with `ModuleNotFoundError` due to the bootstrap issue. Fix `parents[0]` → `parents[1]` in all hooks/ and scripts/ first, or set `PYTHONPATH` to the repo root.
+
+Primary launcher: `bin/orch_launcher.ps1`. The older `bin/launch.ps1` and `bin/launch.sh` scripts are legacy fossils.
+
+---
 
 ## Pre-flight
 
-```powershell
-# Resolve and display all config paths
-python orchestrator/scripts/orchestratorctl.py paths
-
-# Check prerequisites (Python 3.10+, psmux/tmux, state_root, hooks)
-python orchestrator/scripts/orchestratorctl.py doctor
+```bash
+# Check prerequisites (Python 3.10+, psmux/tmux, state dirs, hooks)
+python scripts/doctor.py .
 
 # Validate config against schema + cross-reference agent names
-python orchestrator/scripts/orchestratorctl.py validate
+python scripts/validate.py .
+
+# Show all resolved paths from config
+python scripts/orchestratorctl.py paths .
 ```
 
-## Hook management
+## Hook Management
 
-```powershell
+```bash
 # Install hooks for all agents (merges into settings.local.json, preserves existing hooks)
-python orchestrator/scripts/orchestratorctl.py install-hooks --all
+python scripts/install_hooks.py --all
 
-# Disable a specific hook (sets if condition to never-match)
-python orchestrator/scripts/orchestratorctl.py disable <hook-name>
+# Install hooks for a single agent
+python scripts/install_hooks.py --agent gate-ralph
+
+# Disable a specific hook at runtime (creates flag file)
+python scripts/orchestratorctl.py disable <hook-name> .
 
 # Re-enable a hook
-python orchestrator/scripts/orchestratorctl.py enable <hook-name>
+python scripts/orchestratorctl.py enable <hook-name> .
 ```
 
-## Sprint operations
+## Sprint Operations
 
-```powershell
+```bash
 # Show sprint status (current task, inbox depths, fan-ins, last activity)
-python orchestrator/scripts/orchestratorctl.py status
+python scripts/orchestratorctl.py status .
 
 # Resume a stuck task (re-dispatch, optional --refan to re-notify reviewers)
-python orchestrator/scripts/orchestratorctl.py resume <task_id> [--refan]
+python scripts/orchestratorctl.py resume <task_id> . [--refan]
 
 # Emergency force-approve a stuck gate (audit logged)
-python orchestrator/scripts/orchestratorctl.py override <task_id>
+python scripts/orchestratorctl.py override <task_id> .
 ```
 
 ## Watcher
 
-```powershell
+```bash
 # Start watcher directly (use launcher for supervisor loop)
-python orchestrator/scripts/watcher.py
+python scripts/watcher.py .
 
 # Stop watcher cleanly
-New-Item .orchestrator/runtime_flags/STOP -ItemType File
+# Create the file: .orchestrator/runtime_flags/STOP
 ```
 
-## Launcher (Wave 4)
+## Launcher (PowerShell 7 GUI)
 
 ```powershell
-# Full GUI control panel — sprint wizard, agent sessions, hook control, status
-powershell -File orchestrator/bin/orch_launcher.ps1
+# Full control panel — sprint wizard, agent sessions, hook control, status, deploy
+powershell -File bin/orch_launcher.ps1
 ```
 
-## Smoke test
+38 menu items: launch/pause/resume/stop sprint, status dashboard, agent terminals, hook toggles, deploy to project, backup/restore, and more. See `docs_dev/specs_frozen/LAUNCHER_SPEC.md` for the full spec.
 
-```powershell
-python orchestrator/scripts/dispatch_contract_smoke.py
+Halt flags are `.flag` files in `.orchestrator/halts/`.
+
+## Smoke Test
+
+```bash
+python scripts/dispatch_contract_smoke.py
 ```
 
-## Notes
+Creates a temp project, runs message routing checks. Self-contained.
 
-- MCP commands removed (frozen per spec rule #20)
-- All paths resolved from `.orchestrator/config.json` — commands work from any project with a valid config
+## Key Paths
+
+All paths resolved from `.orchestrator/config.json` via `resolve_path()`:
+
+| Key | Default |
+|-----|---------|
+| `state_root` | `.orchestrator` |
+| `dispatch_root` | `dispatch` |
+| `current_task` | `.orchestrator/tasks/current_task.json` |
+| `trackers` | `.orchestrator/trackers.json` |
+| `merged_verdicts` | `.orchestrator/merged_verdicts` |
+| `halts` | `.orchestrator/halts` |
+| `runtime_flags` | `.orchestrator/runtime_flags` |
+| `logs` | `.orchestrator/logs` |
+| `audit_log` | `.orchestrator/audit.log` |

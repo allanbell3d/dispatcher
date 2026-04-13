@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import sys
-ROOT = Path(__file__).resolve().parents[0]
+ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -152,6 +152,9 @@ def validate_plans(project_root, config: dict) -> list[str]:
             errors.append(f"plan {plan_file.name}: must be a JSON object")
             continue
 
+        if "plan_id" not in data and "tasks" not in data:
+            continue
+
         label = plan_file.name
 
         # Required top-level keys
@@ -241,6 +244,8 @@ def main() -> int:
     task_files = sorted(tasks_dir.glob("*.json")) if tasks_dir.is_dir() else []
     tasks = []
     for tf in task_files:
+        if tf.name == Path(current_task_path).name:
+            continue
         data = read_json(tf, None)
         if isinstance(data, list):
             tasks.extend(data)

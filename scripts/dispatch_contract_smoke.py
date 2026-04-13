@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import sys
-ROOT = Path(__file__).resolve().parents[0]
+ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -24,10 +24,11 @@ _INLINE_CONFIG = {
         "dispatch_root": "dispatch",
         "plans": ".orchestrator/plans",
         "tasks": ".orchestrator/tasks",
-        "current_task": ".orchestrator/current_task.json",
+        "current_task": ".orchestrator/tasks/current_task.json",
         "trackers": ".orchestrator/trackers.json",
         "diffs": ".orchestrator/diffs",
         "audit_log": ".orchestrator/audit.log",
+        "decision_trace": ".orchestrator/logs/decision_trace.log",
         "merged_verdicts": ".orchestrator/merged_verdicts",
         "halts": ".orchestrator/halts",
         "runtime_flags": ".orchestrator/runtime_flags",
@@ -47,27 +48,28 @@ _INLINE_CONFIG = {
     },
     "session": {
         "require_ready_files": False,
-        "halt_between_batches": False
+        "halt_between_batches": False,
+        "session_prefix": "gate-"
     },
     "agents": [
-        {"name": "coder-1", "profile": "gate-coder", "executor": True, "roles": ["coder"]},
-        {"name": "reviewer-1", "profile": "gate-reviewer", "executor": False, "roles": ["reviewer"]},
-        {"name": "monitor-1", "profile": "gate-monitor", "executor": False, "roles": ["monitor"]}
+        {"name": "gate-ralph", "profile": "gate-ralph", "executor": True, "roles": ["coder"]},
+        {"name": "gate-architect", "profile": "gate-architect", "executor": False, "roles": ["reviewer"]},
+        {"name": "gate-monitor", "profile": "gate-monitor", "executor": False, "roles": ["monitor"]}
     ],
     "routing": {
-        "cc_all": ["monitor-1"],
-        "review_requests_to": ["reviewer-1"],
+        "cc_all": ["gate-monitor"],
+        "review_requests_to": ["gate-architect"],
         "escalation_target": "allan"
     },
     "gate": {
-        "require_approvals_from": ["reviewer-1"],
+        "require_approvals_from": ["gate-architect"],
         "consensus_rule": "unanimous",
         "max_rework_rounds": 3,
         "protected_branches": ["dev", "main"]
     },
     "fan_in": {
         "review": {
-            "required": ["reviewer-1"],
+            "required": ["gate-architect"],
             "timeout_seconds": 1200,
             "on_timeout": "escalate_allan"
         }

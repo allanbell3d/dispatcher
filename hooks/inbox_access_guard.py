@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import sys
-ROOT = Path(__file__).resolve().parents[0]
+ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -35,7 +35,7 @@ import os
 import re
 import time as _time
 
-from lib.common import hook_input, load_project_config, resolve_path, resolve_project_root, strip_gate_prefix, trace_hook
+from lib.common import hook_input, load_project_config, resolve_path, resolve_project_root, trace_hook
 
 
 ALLOW = {}
@@ -96,25 +96,36 @@ def _is_under(target: Path, root: Path) -> bool:
 
 
 def main() -> int:
+    _t0 = _time.monotonic()
     if not os.environ.get("GATE_AGENT_NAME", "").strip():
+        trace_hook(hook="inbox_access_guard", agent="", decision="allow",
+                   elapsed_ms=(_time.monotonic() - _t0) * 1000,
+                   reason="no agent")
         print(json.dumps(ALLOW))
         return 0
 
     from lib.common import is_hook_disabled
     if is_hook_disabled("inbox_access_guard"):
+        trace_hook(hook="inbox_access_guard", agent=os.environ.get("GATE_AGENT_NAME", "").strip(),
+                   decision="allow", elapsed_ms=(_time.monotonic() - _t0) * 1000,
+                   reason="hook disabled")
         print(json.dumps(ALLOW))
         return 0
 
     try:
         payload = json.loads(sys.stdin.read() or "{}")
     except json.JSONDecodeError:
-        print(json.dumps(ALLOW))
-        return 0
-
-    _t0 = _time.monotonic()
+        agent = os.environ.get("GATE_AGENT_NAME", "").strip()
+        trace_hook(hook="inbox_access_guard", agent=agent, decision="deny",
+                   elapsed_ms=(_time.monotonic() - _t0) * 1000,
+                   reason="malformed stdin")
+        _deny("Malformed hook payload")
 
     tool_name, tool_input, _, _ = hook_input(payload)
     if tool_name not in PROTECTED_TOOLS:
+        trace_hook(hook="inbox_access_guard", agent=os.environ.get("GATE_AGENT_NAME", "").strip(),
+                   decision="allow", elapsed_ms=(_time.monotonic() - _t0) * 1000,
+                   tool=tool_name, reason="tool not protected")
         print(json.dumps(ALLOW))
         return 0
 
@@ -126,7 +137,6 @@ def main() -> int:
     except Exception:
         project_root_early = None
         config_early = None
-    # Config agent names include gate- prefix; dispatch dirs match directly
 
     target_strs = _extract_target_paths(tool_name, tool_input)
 
@@ -150,17 +160,20 @@ def main() -> int:
     if not agent:
         # Permissive fallback: unstamped sessions (Allan's own) are allowed.
         # Agents must be explicitly stamped to be restricted.
+        trace_hook(hook="inbox_access_guard", agent="", decision="allow",
+                   elapsed_ms=(_time.monotonic() - _t0) * 1000,
+                   reason="no agent after extraction")
         print(json.dumps(ALLOW))
         return 0
 
     try:
         project_root = resolve_project_root()
         config = load_project_config(project_root)
-    except Exception:
-        # Config missing or unreadable -- fail open (permissive) rather than
-        # brick the session. Watcher crash reporting (F2) catches real issues.
-        print(json.dumps(ALLOW))
-        return 0
+    except Exception as exc:
+        trace_hook(hook="inbox_access_guard", agent=agent, decision="deny",
+                   elapsed_ms=(_time.monotonic() - _t0) * 1000,
+                   reason="config unavailable", error=str(exc))
+        _deny(f"Cannot resolve project config: {exc}")
 
     # (a) engine-private tier: state_root/* -- denied for ALL agents.
     # TODO(F7a/F7b): Before Wave 3 -- add config-driven exceptions for reviewers

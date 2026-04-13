@@ -1,651 +1,751 @@
 [
   {
-    "id": "B1",
+    "task_id": "B1",
     "batch": "critical",
     "status": "done",
     "title": "Fresh form fills nothing",
-    "file": "service/dubizzle.py",
     "function": "_fill_form()",
     "details": "Add page.wait_for_selector() after category selection in _fill_form(). Currently runs immediately after _select_category() with no wait for DOM. All .count() > 0 checks return 0 so fills are silently skipped.",
-    "acceptance": [
+    "acceptance_criteria": [
       "After category selection, bot waits for first form field to render",
       "Fields are filled with correct values from ad file",
       "Log shows individual field fill confirmations, not just 'Form filled'"
+    ],
+    "reference_paths": [
+      "service/dubizzle.py"
     ]
   },
   {
-    "id": "B2",
+    "task_id": "B2",
     "batch": "critical",
     "status": "in_progress",
     "title": "No file upload input on fresh form",
-    "file": "service/dubizzle.py",
     "function": "_upload_photos()",
-    "details": "Related to B1. Upload input not found because page hasn't loaded. Fix B1 should resolve this \u00e2\u20ac\u201d verify upload input appears after proper wait.",
-    "acceptance": [
+    "details": "Related to B1. Upload input not found because page hasn't loaded. Fix B1 should resolve this â€” verify upload input appears after proper wait.",
+    "acceptance_criteria": [
       "File upload input found after form fields are filled",
       "Photos uploaded successfully on fresh form"
+    ],
+    "reference_paths": [
+      "service/dubizzle.py"
     ]
   },
   {
-    "id": "B3",
+    "task_id": "B3",
     "batch": "critical",
     "status": "pending",
     "title": "Description selector grabs title textarea",
-    "file": "service/dubizzle.py",
     "function": "_fill_form()",
     "details": "Selector '[name=\"description\"], [placeholder*=\"Describe\"], textarea' with .first picks title textarea (index 0 in DOM). Need specific selector for description textarea only: use [name=\"description\"] or nth textarea.",
-    "acceptance": [
+    "acceptance_criteria": [
       "Description goes into the description field, not the title field",
       "Title field contains only the title text",
       "Verified via JS evaluate on Dubizzle form"
+    ],
+    "reference_paths": [
+      "service/dubizzle.py"
     ]
   },
   {
-    "id": "B4",
+    "task_id": "B4",
     "batch": "critical",
     "status": "pending",
     "title": "Title doubled on draft resume",
-    "file": "service/dubizzle.py",
     "function": "_fill_form()",
-    "details": "Playwright .fill() doesn't clear React-controlled inputs \u00e2\u20ac\u201d appends. Need to clear first: triple-click to select all, then fill. Or use page.evaluate to set value directly and dispatch React change event.",
-    "acceptance": [
+    "details": "Playwright .fill() doesn't clear React-controlled inputs â€” appends. Need to clear first: triple-click to select all, then fill. Or use page.evaluate to set value directly and dispatch React change event.",
+    "acceptance_criteria": [
       "Title field shows single copy of title text on draft resume",
       "No duplication or truncation"
+    ],
+    "reference_paths": [
+      "service/dubizzle.py"
     ]
   },
   {
-    "id": "B5",
+    "task_id": "B5",
     "batch": "critical",
     "status": "pending",
     "title": "No price set notification creates phantom waiter",
-    "file": "service/dubizzle.py",
     "function": "run()",
     "details": "Line 87-90 sends 'No price set' warning with wait=True (default). Bot enters wait_for_reply(), consuming next messages. Add wait=False same pattern as ae659f9 fix for abort/error paths.",
-    "acceptance": [
+    "acceptance_criteria": [
       "'No price set' notification sent with wait=False",
       "Next message after notification is processed as new command, not consumed as reply"
+    ],
+    "reference_paths": [
+      "service/dubizzle.py"
     ]
   },
   {
-    "id": "B6",
+    "task_id": "B6",
     "batch": "critical",
     "status": "pending",
     "title": "PermissionError crashes error handler thread",
-    "file": "service/queue_manager.py",
     "function": "save_queue()",
     "details": "os.replace(tmp, path) fails with WinError 5 (Access Denied) when file locked. Wrap in retry loop with short delay (0.1s, 3 retries). Or use shutil.move with fallback.",
-    "acceptance": [
+    "acceptance_criteria": [
       "Queue file saves succeed even when briefly locked by another process",
       "No PermissionError tracebacks in logs",
       "Error handler thread doesn't crash"
+    ],
+    "reference_paths": [
+      "service/queue_manager.py"
     ]
   },
   {
-    "id": "B7",
+    "task_id": "B7",
     "batch": "critical",
     "status": "pending",
     "title": "edit_ad_copy blocks main poll thread",
-    "file": "service/handlers.py",
     "function": "handle_edit_ad()",
     "details": "edit_ad_copy() runs synchronously on main thread. For claude_cli provider, blocks 30-60s. Run in thread pool: asyncio.to_thread() or threading.Thread with callback.",
-    "acceptance": [
+    "acceptance_criteria": [
       "Bot remains responsive to messages during edit_ad_copy execution",
       "Edit result still applied correctly to ad file"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B8",
+    "task_id": "B8",
     "batch": "critical",
     "status": "pending",
     "title": "Price validation after browser launch",
-    "file": "service/handlers.py",
     "function": "handle_post()",
     "details": "Price check is inside dubizzle.py:run() which runs in posting thread. Moves wasted work: AI variation call, dated copy, queue entry all happen before check. Move price validation BEFORE create_dated_copy.",
-    "acceptance": [
+    "acceptance_criteria": [
       "Price check happens before browser launch and dated copy creation",
       "No wasted AI call or file creation for rooms with [SET PRICE]"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B9",
+    "task_id": "B9",
     "batch": "critical",
     "status": "pending",
     "title": "Batch cancel only cancels first room",
-    "file": "service/dubizzle.py",
     "function": "post_batch()",
     "details": "Cancel during batch only stops current room. Remaining rooms proceed independently. Need a cancel flag that post_batch checks before starting each room.",
-    "acceptance": [
+    "acceptance_criteria": [
       "Cancel during batch posting stops ALL remaining rooms",
       "No browser launches for rooms after cancel"
+    ],
+    "reference_paths": [
+      "service/dubizzle.py"
     ]
   },
   {
-    "id": "B10",
+    "task_id": "B10",
     "batch": "high",
     "status": "pending",
     "title": "change_price modifies live files directly",
-    "file": "service/handlers.py",
     "function": "handle_change_price()",
     "details": "find_ad_file() returns type='live' for real-dated files. Handler has no dated copy logic for live files. Always create dated copy before mutation regardless of file type.",
-    "acceptance": [
+    "acceptance_criteria": [
       "change_price creates a dated copy before modifying",
       "Original file preserved as backup"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B11",
+    "task_id": "B11",
     "batch": "high",
     "status": "pending",
     "title": "edit_ad doesn't protect live files",
-    "file": "service/handlers.py",
     "function": "handle_edit_ad()",
     "details": "Checks if info['type'] == 'template' before creating dated copy. Live files (real-dated) skip this. Change to: always create dated copy if no copy exists today.",
-    "acceptance": [
+    "acceptance_criteria": [
       "Edit creates dated copy before applying AI changes regardless of file type",
       "Original file preserved"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B12",
+    "task_id": "B12",
     "batch": "high",
     "status": "pending",
     "title": "AI edit adds Room/Villa metadata",
-    "file": "service/prompts/edit_ad_copy.md",
     "function": "prompt",
     "details": "AI adds **Room:** and **Villa:** metadata lines not in original. Add explicit instruction to prompt: 'Do not add metadata fields (Room, Villa) that are not in the original text.'",
-    "acceptance": [
+    "acceptance_criteria": [
       "AI edit output contains only fields present in original ad",
       "No **Room:** or **Villa:** lines added"
+    ],
+    "reference_paths": [
+      "service/prompts/edit_ad_copy.md"
     ]
   },
   {
-    "id": "B13",
+    "task_id": "B13",
     "batch": "high",
     "status": "pending",
     "title": "Room 02 template format permanently corrupted",
-    "file": "adverts/2026-04-01_room-02_ensuite-balcony-villa60.md",
     "function": "template",
-    "details": "Restore from git history or manually rebuild. Should start with '# Room 02 \u00e2\u20ac\u201d ...' heading, not '**Title:**'. Remove injected **Room:**/**Villa:** metadata.",
-    "acceptance": [
+    "details": "Restore from git history or manually rebuild. Should start with '# Room 02 â€” ...' heading, not '**Title:**'. Remove injected **Room:**/**Villa:** metadata.",
+    "acceptance_criteria": [
       "Room 02 template starts with # heading",
       "No **Room:** or **Villa:** metadata lines",
       "Format matches other room templates"
+    ],
+    "reference_paths": [
+      "adverts/2026-04-01_room-02_ensuite-balcony-villa60.md"
     ]
   },
   {
-    "id": "B14",
+    "task_id": "B14",
     "batch": "high",
     "status": "pending",
     "title": "Dated copies inherit corruption from source",
-    "file": "service/ad_manager.py",
     "function": "create_dated_copy()",
     "details": "Add format validation before creating dated copy. Check source file has expected structure (# heading or **Title:** line). Warn if format is unexpected.",
-    "acceptance": [
+    "acceptance_criteria": [
       "create_dated_copy warns when source format looks wrong",
       "Does not silently propagate corrupted format"
+    ],
+    "reference_paths": [
+      "service/ad_manager.py"
     ]
   },
   {
-    "id": "B15",
+    "task_id": "B15",
     "batch": "high",
     "status": "pending",
-    "title": "Timezone bug \u00e2\u20ac\u201d dates use UTC not Dubai",
-    "file": "service/ad_manager.py",
+    "title": "Timezone bug â€” dates use UTC not Dubai",
     "function": "create_dated_copy()",
     "details": "datetime.now() returns UTC. Use datetime.now(ZoneInfo('Asia/Dubai')) for Dubai timezone. Import from zoneinfo (Python 3.9+).",
-    "acceptance": [
+    "acceptance_criteria": [
       "Dated copies use Dubai timezone (UTC+4)",
       "Files created at 11pm Dubai time are dated today, not tomorrow"
+    ],
+    "reference_paths": [
+      "service/ad_manager.py"
     ]
   },
   {
-    "id": "B16",
+    "task_id": "B16",
     "batch": "high",
     "status": "pending",
     "title": "Typos propagated from template to copies",
-    "file": "service/prompts/vary_ad_template.md",
     "function": "prompt",
-    "details": "Add instruction to AI variation prompt: 'Fix obvious spelling errors in the source text (e.g., Beatifull \u00e2\u2020\u2019 Beautiful, dinning \u00e2\u2020\u2019 dining).'",
-    "acceptance": [
+    "details": "Add instruction to AI variation prompt: 'Fix obvious spelling errors in the source text (e.g., Beatifull â†’ Beautiful, dinning â†’ dining).'",
+    "acceptance_criteria": [
       "AI variation fixes obvious typos",
       "Dated copies don't carry source typos"
+    ],
+    "reference_paths": [
+      "service/prompts/vary_ad_template.md"
     ]
   },
   {
-    "id": "B17",
+    "task_id": "B17",
     "batch": "high",
     "status": "pending",
     "title": "Body price not updated by change_price",
-    "file": "service/handlers.py",
     "function": "handle_change_price()",
     "details": "Only updates **Price:** header line. Body text with old price ('5,200 AED/month') unchanged. Use regex to find and replace price patterns in body text too.",
-    "acceptance": [
+    "acceptance_criteria": [
       "Both header price and body price text updated",
       "Old price no longer appears anywhere in the file"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B18",
+    "task_id": "B18",
     "batch": "high",
     "status": "pending",
     "title": "No yyyy-mm-dd templates for 5 rooms",
-    "file": "adverts/",
     "function": "templates",
     "details": "Rooms 02, 05, 11, 17, 20 only have real-dated files. Create yyyy-mm-dd_ template files from the best available version of each room's ad.",
-    "acceptance": [
+    "acceptance_criteria": [
       "yyyy-mm-dd_room-XX template exists for rooms 02, 05, 11, 17, 20",
       "find_ad_file returns type='template' for these rooms"
+    ],
+    "reference_paths": [
+      "adverts/"
     ]
   },
   {
-    "id": "B19",
+    "task_id": "B19",
     "batch": "high",
     "status": "pending",
     "title": "21 of 29 ad files have [SET PRICE]",
-    "file": "service/handlers.py",
     "function": "handle_status()",
     "details": "Flag rooms with [SET PRICE] in status report. Add warning before posting: 'Room XX has no price set. Set price first.'",
-    "acceptance": [
+    "acceptance_criteria": [
       "Status report shows which rooms have [SET PRICE]",
       "Posting blocked with helpful message for rooms without price"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B20",
+    "task_id": "B20",
     "batch": "high",
     "status": "pending",
     "title": "Discount/promo text lost in AI edits",
-    "file": "service/prompts/edit_ad_copy.md",
     "function": "prompt",
     "details": "Add instruction: 'Preserve promotional text, discount language, strikethrough prices, and urgency phrases exactly as they appear.'",
-    "acceptance": [
+    "acceptance_criteria": [
       "AI edit preserves discount/promo text verbatim",
       "Strikethrough prices and urgency phrases intact"
+    ],
+    "reference_paths": [
+      "service/prompts/edit_ad_copy.md"
     ]
   },
   {
-    "id": "B21",
+    "task_id": "B21",
     "batch": "high",
     "status": "pending",
     "title": "yes after draft creates duplicate",
-    "file": "service/handlers.py",
     "function": "handle_draft()",
-    "details": "After creating a dated copy, 'yes' resolves against context \u00e2\u2020\u2019 classified as draft again \u00e2\u2020\u2019 creates another copy. Add debounce: check if dated copy for this room exists within last 60 seconds.",
-    "acceptance": [
+    "details": "After creating a dated copy, 'yes' resolves against context â†’ classified as draft again â†’ creates another copy. Add debounce: check if dated copy for this room exists within last 60 seconds.",
+    "acceptance_criteria": [
       "Saying 'yes' after draft creation does not create duplicate",
       "Second 'yes' within 60s is treated as acknowledgment, not new command"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B22",
+    "task_id": "B22",
     "batch": "medium",
     "status": "pending",
     "title": "Price questions misclassified as status",
-    "file": "service/prompts/intent_classifier.md",
     "function": "prompt",
     "details": "Add price-related patterns to classifier: 'how much is room X', 'what does room X cost', 'room X price' should classify as preview (shows ad with price).",
-    "acceptance": [
+    "acceptance_criteria": [
       "'how much is room 14' classifies as preview, not status",
       "Bot shows the ad text including price"
+    ],
+    "reference_paths": [
+      "service/prompts/intent_classifier.md"
     ]
   },
   {
-    "id": "B23",
+    "task_id": "B23",
     "batch": "medium",
     "status": "pending",
     "title": "Photo count query fails",
-    "file": "service/handlers.py",
     "function": "_gather_context()",
     "details": "'how many photos does room 02 have' classified as status but _gather_context doesn't include photo data. Add photo count to context assembly.",
-    "acceptance": [
+    "acceptance_criteria": [
       "Bot can answer 'how many photos' questions",
       "Photo count from Selected/ folder included in context"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B24",
+    "task_id": "B24",
     "batch": "medium",
     "status": "pending",
     "title": "Feature queries unknown",
-    "file": "service/prompts/intent_classifier.md",
     "function": "prompt",
     "details": "'which rooms are ensuite' classified as unknown. Add feature/metadata intent or route to LLM response path with rooms.json context.",
-    "acceptance": [
+    "acceptance_criteria": [
       "'which rooms are ensuite' gets a correct answer",
       "Room metadata from rooms.json included in LLM context"
+    ],
+    "reference_paths": [
+      "service/prompts/intent_classifier.md"
     ]
   },
   {
-    "id": "B25",
+    "task_id": "B25",
     "batch": "medium",
     "status": "pending",
     "title": "Comparison queries unknown",
-    "file": "service/prompts/intent_classifier.md",
     "function": "prompt",
     "details": "'compare rooms 01 and 02' classified as unknown. Add to LLM response path with multi-room context.",
-    "acceptance": [
+    "acceptance_criteria": [
       "'compare rooms 01 and 02' returns useful comparison",
       "Both rooms' ad data included in LLM context"
+    ],
+    "reference_paths": [
+      "service/prompts/intent_classifier.md"
     ]
   },
   {
-    "id": "B26",
+    "task_id": "B26",
     "batch": "medium",
     "status": "pending",
     "title": "Villa-scoped queries unknown",
-    "file": "service/prompts/intent_classifier.md",
     "function": "prompt",
     "details": "'show me villa 62 rooms' classified as unknown. Route to LLM response path with villa-filtered room data.",
-    "acceptance": [
+    "acceptance_criteria": [
       "'show me villa 62 rooms' returns list of rooms in villa 62",
       "Room data filtered by villa number"
+    ],
+    "reference_paths": [
+      "service/prompts/intent_classifier.md"
     ]
   },
   {
-    "id": "B27",
+    "task_id": "B27",
     "batch": "medium",
     "status": "pending",
     "title": "Room number validation missing",
-    "file": "service/handlers.py",
     "function": "handle_post()",
     "details": "Room 99 accepted by classifier with no range check. Validate room number against rooms.json before proceeding.",
-    "acceptance": [
+    "acceptance_criteria": [
       "Invalid room numbers rejected with helpful message",
       "Valid range determined from rooms.json, not hardcoded"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B28",
+    "task_id": "B28",
     "batch": "medium",
     "status": "pending",
     "title": "Bare post infers room from context",
-    "file": "service/prompts/intent_classifier.md",
     "function": "prompt",
-    "details": "Bare 'post' classified as post_room with room from conversation memory. Risky \u00e2\u20ac\u201d could post wrong room. Require explicit room for post intent.",
-    "acceptance": [
+    "details": "Bare 'post' classified as post_room with room from conversation memory. Risky â€” could post wrong room. Require explicit room for post intent.",
+    "acceptance_criteria": [
       "'post' without room number asks which room to post",
       "No silent room inference for posting commands"
+    ],
+    "reference_paths": [
+      "service/prompts/intent_classifier.md"
     ]
   },
   {
-    "id": "B29",
+    "task_id": "B29",
     "batch": "medium",
     "status": "pending",
     "title": "No undo/revert functionality",
-    "file": "service/handlers.py",
     "function": "register_all()",
     "details": "'undo the last edit' classified as edit with action: undo. Add stub handler that explains: 'Previous versions are saved as dated copies. Check adverts/ folder.'",
-    "acceptance": [
+    "acceptance_criteria": [
       "'undo' gets a helpful response about dated copies",
       "Not classified as unknown or sent to AI edit"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B30",
+    "task_id": "B30",
     "batch": "medium",
     "status": "pending",
     "title": "No delete draft functionality",
-    "file": "service/handlers.py",
     "function": "register_all()",
     "details": "'delete the draft for room 02' classified as unknown. Add stub handler explaining current limitations.",
-    "acceptance": [
+    "acceptance_criteria": [
       "'delete draft' gets a helpful response",
       "Not classified as unknown"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B31",
+    "task_id": "B31",
     "batch": "medium",
     "status": "pending",
     "title": "Photo count not in LLM context",
-    "file": "service/handlers.py",
     "function": "_gather_context()",
     "details": "_gather_context() doesn't include photo folder info. Add len(am.get_photos(room)) and photo folder path.",
-    "acceptance": [
+    "acceptance_criteria": [
       "LLM context includes photo count per room",
       "Bot can answer photo-related questions"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B32",
+    "task_id": "B32",
     "batch": "medium",
     "status": "pending",
     "title": "_gather_context only includes named rooms",
-    "file": "service/handlers.py",
     "function": "_gather_context()",
     "details": "When intent has no rooms, context only includes queue status. For 'all rooms' queries, include summary of all rooms from rooms.json.",
-    "acceptance": [
+    "acceptance_criteria": [
       "Queries about all rooms get data about all rooms",
       "'what rooms have no price set' finds all 21 rooms"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B33",
+    "task_id": "B33",
     "batch": "medium",
     "status": "pending",
     "title": "edit room 02 with no instruction",
-    "file": "service/handlers.py",
     "function": "handle_edit_ad()",
     "details": "'edit room 02' passes raw text as edit instruction. Validate that instruction contains actual edit guidance. If not, ask: 'What would you like to change?'",
-    "acceptance": [
+    "acceptance_criteria": [
       "'edit room 02' with no instruction asks for clarification",
       "Does not call AI with empty/vague instruction"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B34",
+    "task_id": "B34",
     "batch": "medium",
     "status": "pending",
     "title": "change price inherits stale room from context",
-    "file": "service/prompts/intent_classifier.md",
     "function": "prompt",
     "details": "'change price' with no room or amount inherits stale room from conversation. Require room and amount for change_price intent.",
-    "acceptance": [
+    "acceptance_criteria": [
       "'change price' without room asks which room",
       "'change price' without amount asks what price"
+    ],
+    "reference_paths": [
+      "service/prompts/intent_classifier.md"
     ]
   },
   {
-    "id": "B35",
+    "task_id": "B35",
     "batch": "medium",
     "status": "pending",
     "title": "show all prices needs escalation",
-    "file": "service/ai_provider.py",
     "function": "classify_intent()",
-    "details": "Haiku can't classify 'show me all the prices' \u00e2\u20ac\u201d escalates to Sonnet. Add 'all prices'/'price list' to regex fast-path as status intent, or improve Haiku prompt.",
-    "acceptance": [
+    "details": "Haiku can't classify 'show me all the prices' â€” escalates to Sonnet. Add 'all prices'/'price list' to regex fast-path as status intent, or improve Haiku prompt.",
+    "acceptance_criteria": [
       "'show me all the prices' classified without escalation",
       "Response includes prices for all rooms"
+    ],
+    "reference_paths": [
+      "service/ai_provider.py"
     ]
   },
   {
-    "id": "B36",
+    "task_id": "B36",
     "batch": "medium",
     "status": "pending",
     "title": "Messages eaten during concurrent posting",
-    "file": "service/bot.py",
     "function": "_process_message()",
     "details": "Active wait_for_reply consumes ALL messages as checkpoint replies. Need message queue: if message doesn't look like a checkpoint reply (not yes/no/cancel/revision), queue it for processing after posting completes.",
-    "acceptance": [
+    "acceptance_criteria": [
       "Non-checkpoint messages during posting are queued, not consumed",
       "Queued messages processed after posting flow ends"
+    ],
+    "reference_paths": [
+      "service/bot.py"
     ]
   },
   {
-    "id": "B37",
+    "task_id": "B37",
     "batch": "medium",
     "status": "pending",
     "title": "asyncio Task destroyed but pending errors",
-    "file": "service/dubizzle.py",
     "function": "post_batch()",
     "details": "Batch cancel leaves pending approval poll tasks. Properly cancel/await all tasks on batch cancel.",
-    "acceptance": [
+    "acceptance_criteria": [
       "No 'Task destroyed but pending' errors on batch cancel",
       "All async tasks properly cleaned up"
+    ],
+    "reference_paths": [
+      "service/dubizzle.py"
     ]
   },
   {
-    "id": "B38",
+    "task_id": "B38",
     "batch": "medium",
     "status": "pending",
     "title": "Queue allows re-queuing rooms in posting status",
-    "file": "service/queue_manager.py",
     "function": "set_status()",
     "details": "Room in 'posting' status can be re-queued. Block with: 'Room XX is currently being posted. Wait for it to finish or cancel first.'",
-    "acceptance": [
+    "acceptance_criteria": [
       "Cannot re-queue room already in 'posting' status",
       "Clear error message explaining current status"
+    ],
+    "reference_paths": [
+      "service/queue_manager.py"
     ]
   },
   {
-    "id": "B39",
+    "task_id": "B39",
     "batch": "medium",
     "status": "pending",
     "title": "edit room with no instruction sends vague prompt",
-    "file": "service/handlers.py",
     "function": "handle_edit_ad()",
-    "details": "Duplicate of B33. Same fix \u00e2\u20ac\u201d validate edit instruction before calling AI.",
-    "acceptance": [
+    "details": "Duplicate of B33. Same fix â€” validate edit instruction before calling AI.",
+    "acceptance_criteria": [
       "Same as B33"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B40",
+    "task_id": "B40",
     "batch": "low",
     "status": "pending",
     "title": "Price formatting inconsistent",
-    "file": "service/handlers.py",
     "function": "handle_change_price()",
     "details": "change_price writes '5200' (no comma). Templates have '5,200'. Normalize to comma-separated format.",
-    "acceptance": [
+    "acceptance_criteria": [
       "Prices always written with comma separation (5,200 not 5200)",
       "Consistent across all operations"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B41",
+    "task_id": "B41",
     "batch": "low",
     "status": "pending",
     "title": "AI variation exceeds 10-20% promise",
-    "file": "service/prompts/vary_ad_template.md",
     "function": "prompt",
     "details": "Titles getting completely rewritten instead of 10-20% variation. Tighten prompt: 'Change at most 2-3 words in the title. Keep the structure, room description, and key selling points identical.'",
-    "acceptance": [
+    "acceptance_criteria": [
       "AI variation changes at most 2-3 words in title",
       "Body structure preserved, only intro paragraph varies"
+    ],
+    "reference_paths": [
+      "service/prompts/vary_ad_template.md"
     ]
   },
   {
-    "id": "B42",
+    "task_id": "B42",
     "batch": "low",
     "status": "pending",
     "title": "Room 17 title style inconsistent",
-    "file": "adverts/",
     "function": "template",
-    "details": "Room 17 title 'Very nice and Affordable furnished bedroom' \u00e2\u20ac\u201d casual vs formal. Rewrite to match other rooms' style.",
-    "acceptance": [
+    "details": "Room 17 title 'Very nice and Affordable furnished bedroom' â€” casual vs formal. Rewrite to match other rooms' style.",
+    "acceptance_criteria": [
       "Room 17 title matches formal style of other room templates"
+    ],
+    "reference_paths": [
+      "adverts/"
     ]
   },
   {
-    "id": "B43",
+    "task_id": "B43",
     "batch": "low",
     "status": "pending",
     "title": "Room 20 title has discount price suffix",
-    "file": "adverts/",
     "function": "template",
-    "details": "Title ends with 'discount price!' \u00e2\u20ac\u201d inconsistent with other rooms. Remove suffix, keep discount info in body only.",
-    "acceptance": [
+    "details": "Title ends with 'discount price!' â€” inconsistent with other rooms. Remove suffix, keep discount info in body only.",
+    "acceptance_criteria": [
       "Room 20 title clean, no 'discount price!' suffix"
+    ],
+    "reference_paths": [
+      "adverts/"
     ]
   },
   {
-    "id": "B44",
+    "task_id": "B44",
     "batch": "low",
     "status": "pending",
     "title": "Room 05 template typo Beatifull",
-    "file": "adverts/",
     "function": "template",
-    "details": "Fix 'Beatifull' \u00e2\u2020\u2019 'Beautiful' in room 05 template. Also fix 'dinning' \u00e2\u2020\u2019 'dining' in body.",
-    "acceptance": [
+    "details": "Fix 'Beatifull' â†’ 'Beautiful' in room 05 template. Also fix 'dinning' â†’ 'dining' in body.",
+    "acceptance_criteria": [
       "No spelling errors in room 05 template"
+    ],
+    "reference_paths": [
+      "adverts/"
     ]
   },
   {
-    "id": "B45",
+    "task_id": "B45",
     "batch": "low",
     "status": "pending",
     "title": "Posting aborted raw error shown to user",
-    "file": "service/dubizzle.py",
     "function": "run()",
     "details": "'Posting aborted: No price set' is technical. Change to: 'Room XX doesn't have a price set yet. Use \"change room XX price to XXXX\" to set it, then try posting again.'",
-    "acceptance": [
+    "acceptance_criteria": [
       "User-friendly error message with guidance",
       "Mentions which room and how to fix"
+    ],
+    "reference_paths": [
+      "service/dubizzle.py"
     ]
   },
   {
-    "id": "B46",
+    "task_id": "B46",
     "batch": "low",
     "status": "pending",
     "title": "Draft detection fails on untitled drafts",
-    "file": "service/dubizzle.py",
     "function": "_check_for_draft()",
     "details": "After clearing form, draft becomes 'Untitled Draft'. Bot searches by title match, doesn't find it. Add fallback: check for any draft in the Rooms category.",
-    "acceptance": [
+    "acceptance_criteria": [
       "Untitled drafts detected",
       "Bot asks about existing draft before creating new form"
+    ],
+    "reference_paths": [
+      "service/dubizzle.py"
     ]
   },
   {
-    "id": "B47",
+    "task_id": "B47",
     "batch": "low",
     "status": "pending",
     "title": "Room 14 dated copy created with SET PRICE",
-    "file": "service/ad_manager.py",
     "function": "create_dated_copy()",
     "details": "AI variation preserved [SET PRICE] placeholder. Add check: if price is [SET PRICE], warn and skip variation or flag.",
-    "acceptance": [
+    "acceptance_criteria": [
       "create_dated_copy warns when price is [SET PRICE]",
       "Dated copy not created silently with placeholder price"
+    ],
+    "reference_paths": [
+      "service/ad_manager.py"
     ]
   },
   {
-    "id": "B48",
+    "task_id": "B48",
     "batch": "low",
     "status": "pending",
     "title": "Queue entries stuck in stale status",
-    "file": "service/queue_manager.py",
     "function": "load_queue()",
     "details": "Rooms stay in 'failed' or 'posting' indefinitely. Add staleness check: if posting > 30 min, mark as failed. Surface in status report.",
-    "acceptance": [
+    "acceptance_criteria": [
       "Stale 'posting' entries auto-marked failed after timeout",
       "Status report flags stale entries"
+    ],
+    "reference_paths": [
+      "service/queue_manager.py"
     ]
   },
   {
-    "id": "B49",
+    "task_id": "B49",
     "batch": "low",
     "status": "pending",
     "title": "All rooms query finds only 1 of 21",
-    "file": "service/handlers.py",
     "function": "_gather_context()",
-    "details": "Related to B32. LLM context too narrow for 'all rooms' queries. Same fix as B32 \u00e2\u20ac\u201d include all room data.",
-    "acceptance": [
+    "details": "Related to B32. LLM context too narrow for 'all rooms' queries. Same fix as B32 â€” include all room data.",
+    "acceptance_criteria": [
       "Same as B32"
+    ],
+    "reference_paths": [
+      "service/handlers.py"
     ]
   },
   {
-    "id": "B50",
+    "task_id": "B50",
     "batch": "low",
     "status": "pending",
-    "title": "Multiple checkpoint replies \u00e2\u20ac\u201d first dropped",
-    "file": "service/bot.py",
+    "title": "Multiple checkpoint replies â€” first dropped",
     "function": "_process_message()",
     "details": "When 2 messages arrive during active waiter, first is overwritten by second. Queue checkpoint replies instead of overwriting.",
-    "acceptance": [
+    "acceptance_criteria": [
       "Multiple rapid messages during checkpoint are queued",
       "First message not lost"
+    ],
+    "reference_paths": [
+      "service/bot.py"
     ]
   }
 ]

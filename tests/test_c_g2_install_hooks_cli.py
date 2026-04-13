@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Test C-G2: install-hooks --all via orchestratorctl."""
-import json, os, subprocess, sys, tempfile
+"""Installer CLI test via scripts/orchestratorctl.py."""
+
+import json
+import shutil
+import subprocess
+import sys
+import uuid
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[0]
+ROOT = Path(__file__).resolve().parents[1]
 CTL = ROOT / "scripts" / "orchestratorctl.py"
 
 _CONFIG = {
@@ -17,6 +22,13 @@ _CONFIG = {
     "paths": {
         "state_root": ".orchestrator",
         "dispatch_root": "dispatch",
+        "plans": ".orchestrator/plans",
+        "tasks": ".orchestrator/tasks",
+        "diffs": ".orchestrator/diffs",
+        "merged_verdicts": ".orchestrator/merged_verdicts",
+        "halts": ".orchestrator/halts",
+        "runtime_flags": ".orchestrator/runtime_flags",
+        "logs": ".orchestrator/logs",
     },
     "agents": [
         {"name": "gate-ralph", "executor": True},
@@ -30,45 +42,63 @@ _CONFIG = {
 }
 
 
-def check(label, condition, detail=""):
-    status = "PASS" if condition else "FAIL"
-    print(f"{status}: {label}" + (f" -- {detail}" if detail else ""))
-    return condition
+def write_config(project: Path) -> None:
+    (project / ".orchestrator").mkdir(parents=True, exist_ok=True)
+    (project / ".orchestrator" / "config.json").write_text(json.dumps(_CONFIG), encoding="utf-8")
 
 
-if __name__ == "__main__":
-    passed = True
+def make_project_dir() -> Path:
+    base = ROOT / ".tmp_install_hooks_tests"
+    project = base / f"g2_{uuid.uuid4().hex}"
+    if project.exists():
+        shutil.rmtree(project, ignore_errors=True)
+    project.mkdir(parents=True, exist_ok=True)
+    return project
 
-    with tempfile.TemporaryDirectory() as td:
-        tmp = Path(td)
-        (tmp / ".orchestrator").mkdir(parents=True, exist_ok=True)
-        (tmp / ".orchestrator" / "config.json").write_text(json.dumps(_CONFIG), encoding="utf-8")
 
-        # install-hooks subcommand should exist and run
-        r = subprocess.run(
-            [sys.executable, str(CTL), "install-hooks", str(tmp)],
-            capture_output=True, text=True, cwd=str(tmp),
+def test_orchestratorctl_install_hooks_writes_shared_settings_file():
+    project = make_project_dir()
+    try:
+        write_config(project)
+
+        result = subprocess.run(
+            [sys.executable, str(CTL), "install-hooks", str(project)],
+            capture_output=True,
+            text=True,
+            cwd=str(project),
         )
-        passed &= check("install-hooks runs", r.returncode == 0,
-                        f"exit={r.returncode} stderr={r.stderr[:200]}")
-        # Output should mention agent names
-        output = r.stdout
-        passed &= check("output mentions ralph", "gate-ralph" in output, output[:300])
-        passed &= check("gate-architect in --all output", "--- gate-architect ---" in output, output[:300])
 
-        # install-hooks with --agent flag
-        r2 = subprocess.run(
-            [sys.executable, str(CTL), "install-hooks", str(tmp), "--agent", "gate-ralph"],
-            capture_output=True, text=True, cwd=str(tmp),
+        assert result.returncode == 0, result.stderr
+        settings_path = project / ".claude" / "settings.local.json"
+        assert settings_path.exists()
+
+        data = json.loads(settings_path.read_text(encoding="utf-8"))
+        file_changed = data["hooks"]["FileChanged"]
+        assert any(entry["matcher"] == "dispatch/gate-ralph/inbox/*.md" for entry in file_changed)
+        assert any(entry["matcher"] == "dispatch/gate-ralph/inbox/*.json" for entry in file_changed)
+        assert any(entry["matcher"] == "dispatch/gate-architect/inbox/*.md" for entry in file_changed)
+        assert any(entry["matcher"] == "dispatch/gate-architect/inbox/*.json" for entry in file_changed)
+        assert "written to" in result.stdout
+        assert "merged hooks for 2 agents" in result.stdout
+    finally:
+        shutil.rmtree(project, ignore_errors=True)
+
+
+def test_orchestratorctl_render_hooks_keeps_single_agent_json_mode():
+    project = make_project_dir()
+    try:
+        write_config(project)
+
+        result = subprocess.run(
+            [sys.executable, str(CTL), "render-hooks", str(project), "--agent", "gate-ralph"],
+            capture_output=True,
+            text=True,
+            cwd=str(project),
         )
-        passed &= check("install-hooks --agent runs", r2.returncode == 0,
-                        f"exit={r2.returncode} stderr={r2.stderr[:200]}")
-        # Output should be valid JSON for a single agent
-        try:
-            data = json.loads(r2.stdout)
-            passed &= check("single agent output is JSON", True)
-            passed &= check("has hooks key", "hooks" in data)
-        except Exception as e:
-            passed &= check("single agent output is JSON", False, str(e))
 
-    sys.exit(0 if passed else 1)
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert "hooks" in data
+        assert not (project / ".claude" / "settings.local.json").exists()
+    finally:
+        shutil.rmtree(project, ignore_errors=True)

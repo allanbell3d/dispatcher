@@ -36,6 +36,22 @@
     "assignee": {
       "type": "string",
       "description": "Optional: force this task to a specific agent. If omitted, router picks from available executors."
+    },
+    "status": {
+      "type": "string",
+      "description": "Optional backlog status used by dispatcher progression."
+    },
+    "batch": {
+      "type": "string",
+      "description": "Optional batch/group label used to pause between batches."
+    },
+    "function": {
+      "type": "string",
+      "description": "Optional implementation hint naming the primary function or entrypoint involved."
+    },
+    "details": {
+      "type": "string",
+      "description": "Optional implementation notes preserved in the staged backlog."
     }
   },
   "additionalProperties": false

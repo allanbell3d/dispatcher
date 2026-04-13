@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import sys
-ROOT = Path(__file__).resolve().parents[0]
+ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -11,35 +11,64 @@ import re
 import subprocess
 import time as _time
 
-from lib.common import hook_input, load_project_config, log_line, resolve_path, resolve_project_root, resolve_shared_roots, timestamp, trace_hook
+from lib.common import audit_log, hook_input, load_project_config, log_line, resolve_path, resolve_project_root, resolve_shared_roots, timestamp, trace_hook
 
 SECRET_PATTERNS = [
     (re.compile(r"Bearer\s+[A-Za-z0-9._\-]+"), "Bearer ***REDACTED***"),
     (re.compile(r"sk-[A-Za-z0-9]{10,}"), "sk-***REDACTED***"),
     (re.compile(r"rt_[A-Za-z0-9\-]{10,}"), "rt_***REDACTED***"),
+    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "AKIA***REDACTED***"),
+    (re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{20,}\b"), "gh***REDACTED***"),
+    (re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"), "github_pat_***REDACTED***"),
+    (re.compile(r"\bxox[a-z]-[A-Za-z0-9-]{10,}\b"), "xox***REDACTED***"),
+    (re.compile(r"(?i)\b(api[_-]?key|token|secret|password)\s*[=:]\s*['\"]?[^'\"\s,]+"), r"\1=***REDACTED***"),
 ]
+
+MAX_SUMMARY_LEN = 500
 
 def redact(text: str) -> str:
     for pattern, repl in SECRET_PATTERNS:
         text = pattern.sub(repl, text)
     return text
 
+
+def summarize(value) -> str:
+    try:
+        text = json.dumps(value, ensure_ascii=False, default=str)
+    except (TypeError, ValueError):
+        text = str(value)
+    text = redact(text)
+    if len(text) > MAX_SUMMARY_LEN:
+        return text[:MAX_SUMMARY_LEN] + f"...[+{len(text) - MAX_SUMMARY_LEN}]"
+    return text
+
 def main() -> int:
+    _t0 = _time.monotonic()
     if not os.environ.get('GATE_AGENT_NAME', '').strip():
+        trace_hook(hook="activity_logger", agent="", decision="skip",
+                   elapsed_ms=(_time.monotonic() - _t0) * 1000,
+                   reason="no agent")
         sys.exit(0)
 
     from lib.common import is_hook_disabled
     if is_hook_disabled("activity_logger"):
+        trace_hook(hook="activity_logger", agent=os.environ.get("GATE_AGENT_NAME", "").strip(),
+                   decision="skip", elapsed_ms=(_time.monotonic() - _t0) * 1000,
+                   reason="hook disabled")
         sys.exit(0)
 
     try:
         payload = json.loads(sys.stdin.read() or "{}")
     except json.JSONDecodeError:
+        trace_hook(hook="activity_logger", agent=os.environ.get("GATE_AGENT_NAME", "").strip(),
+                   decision="skip", elapsed_ms=(_time.monotonic() - _t0) * 1000,
+                   reason="malformed stdin")
         return 0
 
-    _t0 = _time.monotonic()
-
     if payload.get("agent_id"):
+        trace_hook(hook="activity_logger", agent=os.environ.get("GATE_AGENT_NAME", "").strip(),
+                   decision="skip", elapsed_ms=(_time.monotonic() - _t0) * 1000,
+                   reason="nested agent payload")
         return 0
 
     project_root = resolve_project_root()
@@ -53,11 +82,11 @@ def main() -> int:
         "at": timestamp(config),
         "agent": agent,
         "tool_name": tool_name,
-        "tool_input": tool_input,
-        "tool_response": tool_response,
+        "tool_input_summary": summarize(tool_input),
+        "tool_response_summary": summarize(tool_response),
         "exit_code": exit_code,
     }
-    raw = redact(json.dumps(summary, ensure_ascii=False))
+    raw = json.dumps(summary, ensure_ascii=False)
     log_line(logs_dir / f"activity_{agent}.log", raw)
 
     cc_all = config.get("routing", {}).get("cc_all", [])
@@ -67,7 +96,7 @@ def main() -> int:
             if recipient == agent:
                 continue
             try:
-                subprocess.run(
+                result = subprocess.run(
                     [sys.executable, str(send_py), "--project", str(project_root), "--activity", recipient],
                     input=json.dumps(summary),
                     text=True,
@@ -75,8 +104,13 @@ def main() -> int:
                     timeout=5,
                     env={**os.environ, "GATE_AGENT_NAME": agent},
                 )
-            except Exception:
-                pass
+                if result.returncode != 0:
+                    audit_log("activity_ship_failed", project_root=project_root, config=config,
+                              agent=agent, recipient=recipient, returncode=result.returncode,
+                              stderr=summarize(result.stderr))
+            except Exception as exc:
+                audit_log("activity_ship_failed", project_root=project_root, config=config,
+                          agent=agent, recipient=recipient, error=str(exc))
 
     trace_hook(hook="activity_logger", agent=agent, decision="allow",
                elapsed_ms=(_time.monotonic() - _t0) * 1000,

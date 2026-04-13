@@ -1,5 +1,5 @@
 {
-  "project": "dubizzle-bot",
+  "project": "dispatcher",
   "shared_roots": {
     "orchestrator_primary": "W:/Claude_Library/orchestrator",
     "orchestrator_fallback": "D:/IA/orchestrator",
@@ -11,11 +11,12 @@
     "dispatch_root": "dispatch",
     "plans": ".orchestrator/plans",
     "tasks": ".orchestrator/tasks",
-    "current_task": ".orchestrator/current_task.json",
+    "current_task": ".orchestrator/tasks/current_task.json",
     "trackers": ".orchestrator/trackers.json",
     "diffs": ".orchestrator/diffs",
     "logs": ".orchestrator/logs",
     "audit_log": ".orchestrator/audit.log",
+    "decision_trace": ".orchestrator/logs/decision_trace.log",
     "merged_verdicts": ".orchestrator/merged_verdicts",
     "halts": ".orchestrator/halts",
     "runtime_flags": ".orchestrator/runtime_flags",
@@ -43,7 +44,7 @@
     { "name": "gate-architect",  "profile": "gate-architect",  "executor": false, "roles": ["reviewer"] },
     { "name": "gate-critic",     "profile": "gate-critic",     "executor": false, "roles": ["reviewer"] },
     { "name": "gate-monitor",    "profile": "gate-monitor",    "executor": false, "roles": ["monitor", "playwright"] },
-    { "name": "gate-playwright", "profile": "gate-playwright", "executor": false, "roles": ["tester"] }
+    { "name": "gate-playwright", "profile": "gate-playwright", "executor": false, "roles": ["playwright"] }
   ],
   "routing": {
     "cc_all": ["gate-monitor"],

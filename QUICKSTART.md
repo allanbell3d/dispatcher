@@ -1,76 +1,100 @@
 # Quick Start
 
-## 1. Prerequisites
+## Prerequisites
 
 - Python 3.10+
+- PowerShell 7 (for launcher)
 - psmux (Windows) or tmux (Linux/Mac)
 - Claude Code CLI
 
-## 2. Project structure
+No pip install needed — engine is stdlib only.
 
-Your project needs:
-```
-<project>/
-├── .orchestrator/config.json    ← project config (team, routing, gates, paths)
-├── dispatch/                    ← created by launcher or manually
-└── (your project code)
+## 1. Clone
+
+```bash
+git clone https://github.com/allanbell3d/dispatcher D:\IA\dispatcher_repo
 ```
 
-Engine code lives separately at:
-- `W:\Claude_Library\orchestrator\` (NAS primary)
-- `D:\IA\orchestrator\` (fallback)
+## 2. Deploy to a Project
 
-Agent profiles at:
-- `W:\Claude_Library\agents\` (NAS primary)
-- `D:\IA\agents\` (fallback)
-
-## 3. Validate
+The engine repo is the source. Your project gets a copy of `.orchestrator/` and `dispatch/` folders. The engine code stays here — hooks reference this path.
+The root `sprint_profiles/` directory is the deploy-time template source; live sprint profiles live under `.orchestrator/sprint_profiles/` in each project.
 
 ```powershell
-python orchestrator/scripts/orchestratorctl.py doctor
-python orchestrator/scripts/orchestratorctl.py validate
+# Option A: use the launcher
+powershell -File bin/orch_launcher.ps1
+# (preferred; `bin/launch.ps1` and `bin/launch.sh` are legacy fossils)
+# → Install Options → Deploy to Project → pick your project folder
+
+# Option B: manual
+# 1. Copy .orchestrator/ to <your-project>/.orchestrator/
+# 2. Edit <your-project>/.orchestrator/config.json for your team/paths
+# 3. Install hooks:
+python scripts/install_hooks.py --all --project <your-project>
 ```
 
-Both must pass. Doctor checks prereqs. Validate checks config schema + cross-references.
+## 3. Configure
 
-## 4. Install hooks
+Edit `<your-project>/.orchestrator/config.json`:
 
-```powershell
-python orchestrator/scripts/orchestratorctl.py install-hooks --all
+- `agents[]` — who participates (names, roles, executor flag)
+- `routing` — where messages go (review requests, CC, escalation)
+- `gate` — consensus rule, required approvers, protected branches
+- `paths` — folder locations (defaults work for most setups)
+- `wake` — mechanism (psmux/tmux), timing, thresholds
+
+See `schemas/config_schema.json` for the full schema.
+
+## 4. Validate
+
+```bash
+python scripts/doctor.py <your-project>
+python scripts/validate.py <your-project>
 ```
 
-Merges orchestrator hooks into `settings.local.json`. Does NOT overwrite Allan's existing hooks.
+Doctor checks prerequisites. Validate checks config against schema + cross-references agent names, routing, gate rules.
 
-## 5. Launch
+Both must pass before launching.
+
+## 5. Launch a Sprint
 
 ```powershell
-powershell -File orchestrator/bin/orch_launcher.ps1
+powershell -File bin/orch_launcher.ps1
 ```
 
 The launcher:
 1. Validates config
-2. Creates dispatch folders
-3. Starts watcher (with supervisor restart loop)
+2. Creates dispatch folders for all agents
+3. Starts the watcher (background supervisor loop)
 4. Opens psmux terminals per agent with `GATE_AGENT_NAME` set
-5. Optionally launches Claude in each terminal
-6. Dispatches first task from plan
+5. Optionally launches Claude Code in each terminal
+6. Dispatches first task from the plan
 
-## 6. During a sprint
+## 6. During a Sprint
 
-- Coder works on a task → monitor watches live → coder delivers → reviewers gate the commit
-- `orch status` shows progress
-- `orch override <task_id>` for emergency gate bypass
-- `orch resume <task_id>` for stuck tasks
-- Pause: launcher menu or write halt flags
-- Stop: write `.orchestrator/runtime_flags/STOP`
+The watcher handles everything automatically:
+- Scans agent outboxes for messages
+- Routes review requests to reviewers (fan-out)
+- Collects verdicts and writes merged verdicts (fan-in)
+- Dispatches next task on approval
+- Escalates to Allan on timeout or max rework rounds
+
+Manual intervention:
+- **Status:** launcher dashboard or `python scripts/orchestratorctl.py status .`
+- **Pause:** launcher menu or write `.flag` halt files to `.orchestrator/halts/`
+- **Resume:** launcher menu or `python scripts/orchestratorctl.py resume <task_id> .`
+- **Override:** `python scripts/orchestratorctl.py override <task_id> .` (emergency gate bypass, audit logged)
+- **Stop:** create `.orchestrator/runtime_flags/STOP`
 
 ## 7. Logs
 
-Dual-write:
-- **NAS archive:** `W:\Claude_Library\orchestrator\logs\<project>\`
-- **Project local:** `.orchestrator/logs/`
+Dual-write — NAS archive + project local:
 
-Key files:
-- `decision_trace_<session>.log` — every hook call with agent, tool, decision, reason, timing
-- `audit.log` — state changes, fan-in events, overrides
-- `watcher.log` — watcher lifecycle
+| Log | What |
+|-----|------|
+| `decision_trace_<session>.log` | Every hook call: agent, tool, decision, reason, timing |
+| `audit.log` | State changes, fan-in events, overrides, crashes |
+
+## Current Limitation
+
+As of v0.1.10, the Python import bootstrap is broken. All commands fail with `ModuleNotFoundError`. The fix is to change `parents[0]` to `parents[1]` in the sys.path block of every file in `hooks/` and `scripts/`. See [STATE.md](STATE.md) for the full issue list.

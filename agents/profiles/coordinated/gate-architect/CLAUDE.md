@@ -9,13 +9,13 @@ Read your shared role prompt:
 - `{shared_agents_root}/profiles/coordinated/gate-architect/role_prompt.md`
 
 Then read your project overlay:
-- `memories/gate-architect/notes.md`
-- `memories/gate-architect/startup_protocol.md`
+- `memory/gate-architect/notes.md`
+- `memory/gate-architect/startup_protocol.md`
 
 Live communication:
-- inbound: `dispatch/architect/active/`
-- outbound: `dispatch/architect/outbox/`
-- structured replies: `dispatch/architect/reports/`
+- inbound: `dispatch/gate-architect/inbox/`
+- outbound: `dispatch/gate-architect/outbox/`
+- structured replies: `dispatch/gate-architect/reports/`
 
 Private project control plane:
 - `.orchestrator/`
