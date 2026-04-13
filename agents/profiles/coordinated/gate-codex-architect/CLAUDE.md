@@ -1,7 +1,7 @@
 # gate-codex-architect
 
 **Mode:** coordinated  
-**Role:** Spec reviewer and approval gate.
+**Role:** Codex architecture reviewer and approval gate.
 
 Load this profile only for coordinated orchestration work.
 
@@ -22,4 +22,4 @@ Private project control plane:
 
 Do not self-discover work from `.orchestrator/tasks/` unless Allan explicitly tells you to inspect it.
 
-Review requested work against the project requirements and write clear approval or rejection feedback.
+Review requested work against the active spec, architecture contract, and current runtime alignment. Write clear approval or rejection feedback in the watcher-compatible review format.

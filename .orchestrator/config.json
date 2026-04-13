@@ -43,9 +43,35 @@
     { "name": "gate-ralph",      "profile": "gate-ralph",      "executor": true,  "roles": ["coder"] },
     { "name": "gate-architect",  "profile": "gate-architect",  "executor": false, "roles": ["reviewer"] },
     { "name": "gate-critic",     "profile": "gate-critic",     "executor": false, "roles": ["reviewer"] },
+    { "name": "gate-codex-architect", "profile": "gate-codex-architect", "executor": false, "roles": ["reviewer"] },
+    { "name": "gate-codex-critic", "profile": "gate-codex-critic", "executor": false, "roles": ["reviewer"] },
     { "name": "gate-monitor",    "profile": "gate-monitor",    "executor": false, "roles": ["monitor", "playwright"] },
     { "name": "gate-playwright", "profile": "gate-playwright", "executor": false, "roles": ["playwright"] }
   ],
+  "reviewers": {
+    "available": [
+      "gate-architect",
+      "gate-critic",
+      "gate-codex-architect",
+      "gate-codex-critic"
+    ],
+    "active": [
+      "gate-architect",
+      "gate-critic"
+    ],
+    "presets": {
+      "classic": ["gate-architect", "gate-critic"],
+      "codex": ["gate-codex-architect", "gate-codex-critic"],
+      "hybrid_a": ["gate-architect", "gate-codex-critic"],
+      "hybrid_b": ["gate-critic", "gate-codex-architect"],
+      "all_four": [
+        "gate-architect",
+        "gate-critic",
+        "gate-codex-architect",
+        "gate-codex-critic"
+      ]
+    }
+  },
   "routing": {
     "cc_all": ["gate-monitor"],
     "review_requests_to": ["gate-architect", "gate-critic"],

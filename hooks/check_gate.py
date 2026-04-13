@@ -19,7 +19,16 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from lib.common import current_task_id, hook_input, load_project_config, read_json, resolve_path, resolve_project_root, trace_hook
+from lib.common import (
+    active_reviewers,
+    current_task_id,
+    hook_input,
+    load_project_config,
+    read_json,
+    resolve_path,
+    resolve_project_root,
+    trace_hook,
+)
 
 
 def _is_plain_git_commit(command: str) -> bool:
@@ -130,6 +139,11 @@ def main():
         verdict = None
 
     if verdict is None:
+        required_reviewers = active_reviewers(config)
+        reviewers_suffix = (
+            f" Active reviewers: {', '.join(required_reviewers)}."
+            if required_reviewers else ""
+        )
         trace_hook(hook="check_gate", agent=agent, decision="deny",
                    elapsed_ms=(_time.monotonic() - _t0) * 1000,
                    project_root=project_root, config=config,
@@ -137,7 +151,7 @@ def main():
         _deny(
             f"check-gate: no merged verdict for task {task_id} -- "
             f"reviewers have not yet reached consensus. "
-            f"Wait for watcher to write {task_id}.json to merged_verdicts/."
+            f"Wait for watcher to write {task_id}.json to merged_verdicts/.{reviewers_suffix}"
         )
         return
 

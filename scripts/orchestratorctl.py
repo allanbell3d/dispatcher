@@ -6,6 +6,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import argparse
+import json
 import subprocess
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -13,6 +14,76 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 
 def current_task_id(data: dict) -> str:
     return str(data.get("task_id") or data.get("id") or "").strip()
+
+
+def _ordered_subset(order: list[str], selected: set[str]) -> list[str]:
+    return [name for name in order if name in selected]
+
+
+def _load_role_config(project_path):
+    from lib.common import load_project_config, resolve_project_root
+    project_root = resolve_project_root(project_path)
+    config = load_project_config(project_root)
+    return project_root, config
+
+
+def _write_role_config(project_root, config):
+    from lib.common import write_json
+    write_json(project_root / ".orchestrator" / "config.json", config)
+
+
+def cmd_reviewers_show(project_path) -> int:
+    from lib.common import active_reviewers, reviewers_available
+    _, config = _load_role_config(project_path)
+    available = reviewers_available(config)
+    active = active_reviewers(config)
+    presets = ((config.get("reviewers") or {}).get("presets") or {})
+    print(json.dumps({
+        "available": available,
+        "active": active,
+        "presets": presets,
+    }, indent=2))
+    return 0
+
+
+def cmd_reviewers_preset(project_path, preset: str) -> int:
+    from lib.common import sync_reviewer_fields
+    project_root, config = _load_role_config(project_path)
+    reviewers_cfg = config.setdefault("reviewers", {})
+    presets = reviewers_cfg.get("presets") or {}
+    if preset not in presets:
+        print(f"Unknown reviewer preset '{preset}'")
+        return 1
+    reviewers_cfg["active"] = list(presets[preset])
+    sync_reviewer_fields(config)
+    _write_role_config(project_root, config)
+    print(f"Applied reviewer preset '{preset}': {', '.join(reviewers_cfg['active'])}")
+    return 0
+
+
+def cmd_reviewers_set_member(project_path, reviewer: str, enable: bool) -> int:
+    from lib.common import active_reviewers, reviewers_available, sync_reviewer_fields
+    project_root, config = _load_role_config(project_path)
+    available = reviewers_available(config)
+    if reviewer not in available:
+        print(f"Unknown reviewer '{reviewer}'. Available: {', '.join(available)}")
+        return 1
+    active = set(active_reviewers(config))
+    if enable:
+        active.add(reviewer)
+    else:
+        active.discard(reviewer)
+        if not active:
+            print("Cannot disable the last active reviewer.")
+            return 1
+    config.setdefault("reviewers", {})
+    config["reviewers"]["active"] = _ordered_subset(available, active)
+    sync_reviewer_fields(config)
+    _write_role_config(project_root, config)
+    action = "enabled" if enable else "disabled"
+    print(f"Reviewer {action}: {reviewer}")
+    print(f"Active reviewers: {', '.join(config['reviewers']['active'])}")
+    return 0
 
 def run(script: str, extra: list[str]) -> int:
     cmd = [sys.executable, str(SCRIPTS_DIR / script), *extra]
@@ -107,7 +178,8 @@ def cmd_resume(project_path, agent_name: str, refan: bool = False) -> int:
         if not task_id:
             print("No current task_id available -- skipping re-fan-out")
             return 0
-        reviewers = config.get("gate", {}).get("require_approvals_from", [])
+        from lib.common import active_reviewers
+        reviewers = active_reviewers(config)
         for reviewer in reviewers:
             inbox = dispatch_dir / reviewer / "inbox"
             inbox.mkdir(parents=True, exist_ok=True)
@@ -253,6 +325,20 @@ def main() -> int:
     grp.add_argument("--enable", action="store_true")
     grp.add_argument("--disable", action="store_true")
 
+    p = sub.add_parser("reviewers")
+    reviewers_sub = p.add_subparsers(dest="reviewers_cmd", required=True)
+    p_show = reviewers_sub.add_parser("show")
+    p_show.add_argument("project", nargs="?", default=None)
+    p_preset = reviewers_sub.add_parser("preset")
+    p_preset.add_argument("preset")
+    p_preset.add_argument("project", nargs="?", default=None)
+    p_enable = reviewers_sub.add_parser("enable")
+    p_enable.add_argument("reviewer")
+    p_enable.add_argument("project", nargs="?", default=None)
+    p_disable = reviewers_sub.add_parser("disable")
+    p_disable.add_argument("reviewer")
+    p_disable.add_argument("project", nargs="?", default=None)
+
     args = parser.parse_args()
 
     if args.cmd == "doctor":
@@ -282,6 +368,15 @@ def main() -> int:
         return cmd_override(args.project, args.task, args.verdict, args.reason)
     if args.cmd == "toggle-hook":
         return cmd_toggle_hook(args.project, args.hook, args.enable)
+    if args.cmd == "reviewers":
+        if args.reviewers_cmd == "show":
+            return cmd_reviewers_show(args.project)
+        if args.reviewers_cmd == "preset":
+            return cmd_reviewers_preset(args.project, args.preset)
+        if args.reviewers_cmd == "enable":
+            return cmd_reviewers_set_member(args.project, args.reviewer, True)
+        if args.reviewers_cmd == "disable":
+            return cmd_reviewers_set_member(args.project, args.reviewer, False)
     if args.cmd == "install-hooks":
         extra = []
         if args.project:

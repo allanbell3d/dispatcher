@@ -12,7 +12,7 @@ import random
 import re
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -23,15 +23,21 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 #   agents_primary:        W:/Claude_Library/agents
 #   agents_fallback:       D:/IA/agents
 DEFAULT_TZ = "Asia/Dubai"
+_FIXED_TZ_FALLBACKS = {
+    "Asia/Dubai": timezone(timedelta(hours=4)),
+}
 
+
+def _resolve_tz(config: dict | None = None):
+    tz_name = ((config or {}).get("session") or {}).get("timezone", DEFAULT_TZ)
+    try:
+        return ZoneInfo(tz_name)
+    except (ZoneInfoNotFoundError, KeyError):
+        return _FIXED_TZ_FALLBACKS.get(tz_name, timezone.utc)
 
 
 def now_tz(config: dict | None = None) -> datetime:
-    tz_name = ((config or {}).get("session") or {}).get("timezone", DEFAULT_TZ)
-    try:
-        return datetime.now(ZoneInfo(tz_name))
-    except (ZoneInfoNotFoundError, KeyError):
-        return datetime.now(timezone.utc)
+    return datetime.now(_resolve_tz(config))
 
 
 def timestamp(config: dict | None = None) -> str:
@@ -85,6 +91,20 @@ def sha256_file(path: Path) -> str | None:
 def ensure_dispatch_dirs(dispatch_dir: Path, agent: str):
     for sub in ["inbox", "outbox", "reports", "done", "archive"]:
         (dispatch_dir / agent / sub).mkdir(parents=True, exist_ok=True)
+
+
+def visible_dispatch_files(directory: Path) -> list[Path]:
+    """Return real dispatch artifacts, excluding temp files and dotfile placeholders."""
+    if not directory.is_dir():
+        return []
+    try:
+        return [
+            path
+            for path in directory.iterdir()
+            if path.is_file() and path.suffix != ".tmp" and not path.name.startswith(".")
+        ]
+    except OSError:
+        return []
 
 
 def sort_files_by_mtime(paths):
@@ -261,12 +281,7 @@ def audit_log(event: str, project_root: Path = None, config: dict | None = None,
             project_root = resolve_project_root()
         log_path = resolve_path("audit_log", project_root, config)
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        tz_name = ((config or {}).get("session") or {}).get("timezone", DEFAULT_TZ)
-        try:
-            _tz = ZoneInfo(tz_name)
-        except (ZoneInfoNotFoundError, KeyError):
-            _tz = timezone.utc
-        ts = datetime.now(_tz).isoformat()
+        ts = datetime.now(_resolve_tz(config)).isoformat()
         entry = json.dumps({"ts": ts, "event": event, **fields}) + "\n"
         encoded = entry.encode("utf-8")
         fd = os.open(str(log_path), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
@@ -317,12 +332,7 @@ def trace_hook(
             log_path = trace_path
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
-        tz_name = ((config or {}).get("session") or {}).get("timezone", DEFAULT_TZ)
-        try:
-            _tz = ZoneInfo(tz_name)
-        except (ZoneInfoNotFoundError, KeyError):
-            _tz = timezone.utc
-        ts = datetime.now(_tz).isoformat()
+        ts = datetime.now(_resolve_tz(config)).isoformat()
         entry = json.dumps({
             "ts": ts,
             "hook": hook,
@@ -358,6 +368,50 @@ def trace_hook(
 
 def agent_names(config: dict) -> list[str]:
     return [a.get("name") for a in config.get("agents", []) if a.get("name")]
+
+
+def reviewers_available(config: dict) -> list[str]:
+    reviewers_cfg = (config.get("reviewers") or {}).get("available")
+    if isinstance(reviewers_cfg, list) and reviewers_cfg:
+        return [str(name).strip() for name in reviewers_cfg if str(name).strip()]
+    return [
+        a.get("name")
+        for a in config.get("agents", [])
+        if a.get("name") and "reviewer" in (a.get("roles") or [])
+    ]
+
+
+def active_reviewers(config: dict) -> list[str]:
+    reviewers_cfg = (config.get("reviewers") or {}).get("active")
+    if isinstance(reviewers_cfg, list) and reviewers_cfg:
+        return [str(name).strip() for name in reviewers_cfg if str(name).strip()]
+    for legacy in (
+        (config.get("routing") or {}).get("review_requests_to"),
+        (config.get("gate") or {}).get("require_approvals_from"),
+        ((config.get("fan_in") or {}).get("review") or {}).get("required"),
+    ):
+        if isinstance(legacy, list) and legacy:
+            return [str(name).strip() for name in legacy if str(name).strip()]
+    return reviewers_available(config)
+
+
+def sync_reviewer_fields(config: dict) -> dict:
+    active = active_reviewers(config)
+    config.setdefault("reviewers", {})
+    config["reviewers"].setdefault("available", reviewers_available(config))
+    config["reviewers"]["active"] = active
+    config["reviewers"].setdefault("presets", {})
+
+    config.setdefault("routing", {})
+    config["routing"]["review_requests_to"] = list(active)
+
+    config.setdefault("gate", {})
+    config["gate"]["require_approvals_from"] = list(active)
+
+    config.setdefault("fan_in", {})
+    config["fan_in"].setdefault("review", {})
+    config["fan_in"]["review"]["required"] = list(active)
+    return config
 
 
 def current_task_id(task: dict | None) -> str:

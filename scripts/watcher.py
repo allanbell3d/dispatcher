@@ -12,6 +12,7 @@ import time
 from dataclasses import dataclass, asdict, field
 
 from lib.common import (
+    active_reviewers,
     atomic_write,
     audit_log,
     compute_message_name,
@@ -24,6 +25,7 @@ from lib.common import (
     sort_files_by_mtime,
     timestamp,
     trace_hook,
+    visible_dispatch_files,
     write_json,
 )
 from lib.wake import wake_agent
@@ -175,13 +177,7 @@ def liveness_check_once(
 
         # Check inbox for real (non-.tmp) files
         inbox_dir = dispatch_root / agent / "inbox"
-        try:
-            inbox_files = [
-                p for p in inbox_dir.iterdir()
-                if p.is_file() and p.suffix != ".tmp"
-            ] if inbox_dir.is_dir() else []
-        except OSError:
-            inbox_files = []
+        inbox_files = visible_dispatch_files(inbox_dir)
 
         if not inbox_files:
             trace_hook(hook="liveness", agent=agent, decision="skip",
@@ -365,7 +361,7 @@ def main() -> int:
         Returns True so the caller skips the generic deliver_message() path.
         """
         routing = config.get("routing", {})
-        reviewers = routing.get("review_requests_to", [])
+        reviewers = active_reviewers(config)
         cc_targets = routing.get("cc_all", [])
         task_id = parsed.get("task_id") or source_file.stem
         body = parsed.get("body", "")
@@ -420,7 +416,7 @@ def main() -> int:
                 request_id=task_id,
                 msg_type=msg_type,
                 sender=sender,
-                required=list(fan_in_cfg.get("required", delivered_to)),
+                required=list(fan_in_cfg.get("required", active_reviewers(config) or delivered_to)),
                 timeout_seconds=int(fan_in_cfg.get("timeout_seconds", 300)),
                 on_timeout=str(fan_in_cfg.get("on_timeout", "escalate_allan")),
                 original_body=body,
@@ -459,7 +455,12 @@ def main() -> int:
         while not stop_file.exists():
             # process outbox
             for outbox_file in sort_files_by_mtime(dispatch_dir.glob("*/outbox/*")):
-                if not outbox_file.is_file() or outbox_file.stat().st_size == 0:
+                if (
+                    not outbox_file.is_file()
+                    or outbox_file.name.startswith(".")
+                    or outbox_file.suffix == ".tmp"
+                    or outbox_file.stat().st_size == 0
+                ):
                     continue
                 sender = outbox_file.parent.parent.name
                 try:
@@ -480,7 +481,12 @@ def main() -> int:
 
             # process reports
             for report_file in sort_files_by_mtime(dispatch_dir.glob("*/reports/*")):
-                if not report_file.is_file() or report_file.stat().st_size == 0:
+                if (
+                    not report_file.is_file()
+                    or report_file.name.startswith(".")
+                    or report_file.suffix == ".tmp"
+                    or report_file.stat().st_size == 0
+                ):
                     continue
                 reporter = report_file.parent.parent.name
                 try:
@@ -600,7 +606,7 @@ def main() -> int:
             now = time.time()
             for agent, wake in list(pending_wakes.items()):
                 inbox_dir = dispatch_dir / agent / "inbox"
-                has_unread = any(p for p in inbox_dir.iterdir() if p.is_file() and p.suffix != ".tmp") if inbox_dir.is_dir() else False
+                has_unread = bool(visible_dispatch_files(inbox_dir))
                 if not has_unread:
                     pending_wakes.pop(agent, None)
                     continue

@@ -10,7 +10,16 @@ import ast
 import json
 import re
 
-from lib.common import agent_names, load_project_config, read_json, resolve_path, resolve_project_root, resolve_shared_roots
+from lib.common import (
+    active_reviewers,
+    agent_names,
+    load_project_config,
+    read_json,
+    resolve_path,
+    resolve_project_root,
+    resolve_shared_roots,
+    reviewers_available,
+)
 
 LIVE_PATTERNS = [
     ".orchestrator/config.json",
@@ -120,6 +129,45 @@ def validate_config(config: dict, schema: dict, config_agent_names: list[str], w
     fan_in_required = config.get("fan_in", {}).get("review", {}).get("required")
     _check_agent_refs(fan_in_required, "fan_in.review.required")
 
+    reviewers = config.get("reviewers")
+    if isinstance(reviewers, dict):
+        available = reviewers.get("available")
+        active = reviewers.get("active")
+        presets = reviewers.get("presets")
+
+        if not isinstance(available, list) or not available:
+            errors.append("config.reviewers.available: must be a non-empty list")
+        else:
+            for name in available:
+                if name not in agent_set:
+                    errors.append(
+                        f"config.reviewers.available references unknown agent {name!r} "
+                        f"(not in agents[].name)"
+                    )
+
+        if not isinstance(active, list) or not active:
+            errors.append("config.reviewers.active: must be a non-empty list")
+        elif isinstance(available, list):
+            for name in active:
+                if name not in available:
+                    errors.append(
+                        f"config.reviewers.active references {name!r} which is not in reviewers.available"
+                    )
+
+        if not isinstance(presets, dict) or not presets:
+            errors.append("config.reviewers.presets: must be a non-empty object")
+        else:
+            for preset_name, members in presets.items():
+                if not isinstance(members, list) or not members:
+                    errors.append(f"config.reviewers.presets.{preset_name}: must be a non-empty list")
+                    continue
+                for name in members:
+                    if isinstance(available, list) and name not in available:
+                        errors.append(
+                            f"config.reviewers.presets.{preset_name} references {name!r} "
+                            f"which is not in reviewers.available"
+                        )
+
     esc = routing.get("escalation_target")
     if esc and isinstance(esc, str) and esc not in agent_set:
         if warnings is not None:
@@ -223,7 +271,7 @@ def main() -> int:
     warnings: list[str] = []
 
     # required dirs/files — spec keys only (MASTER_SPECS_MERGED.md "Config shape")
-    for key in ["dispatch_root", "state_root", "tasks", "current_task", "plans"]:
+    for key in ["dispatch_root", "state_root", "tasks", "plans"]:
         p = resolve_path(key, project_root, config)
         if not p.exists():
             errors.append(f"missing required path ({key}): {p}")
@@ -252,10 +300,13 @@ def main() -> int:
         elif isinstance(data, dict):
             tasks.append(data)
 
-    current = read_json(current_task_path, {})
+    current_exists = current_task_path.exists()
+    current = read_json(current_task_path, {}) if current_exists else {}
 
     if not isinstance(tasks, list) or not tasks:
-        errors.append("tasks must be a non-empty list (from tasks directory .json files)")
+        warnings.append("no task files present in .orchestrator/tasks — project is currently idle")
+        if current_exists and current:
+            warnings.append("current_task.json exists but no task files are present")
     else:
         ids = set()
         for idx, item in enumerate(tasks, 1):
@@ -271,7 +322,9 @@ def main() -> int:
             if item.get("task_id") in ids:
                 errors.append(f"duplicate task id: {item.get('task_id')}")
             ids.add(item.get("task_id"))
-        if current and current.get("task_id") not in ids:
+        if not current_exists or not current:
+            warnings.append("no active task selected (current_task.json missing or empty)")
+        elif current.get("task_id") not in ids:
             errors.append(f"current task {current.get('task_id')} not present in tasks")
     # H3 — plan format validator (replaces basic plan check above)
     errors.extend(validate_plans(project_root, config))

@@ -324,6 +324,46 @@
         }
       }
     },
+    "reviewers": {
+      "type": "object",
+      "description": "Installed and active reviewer control. Optional for backward compatibility; when present, runtime treats reviewers.active as the source of truth.",
+      "required": [
+        "available",
+        "active",
+        "presets"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "available": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "Installed reviewer agents."
+        },
+        "active": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "Currently active reviewer agents. Source of truth for fan-out, fan-in, and gate requirements."
+        },
+        "presets": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "Named reviewer sets for launcher/CLI switching."
+        }
+      }
+    },
     "gate": {
       "type": "object",
       "description": "Commit gate and approval configuration",

@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from lib.common import audit_log, current_task_id, hook_input, is_halted, load_project_config, read_json, resolve_path, resolve_project_root, trace_hook
+from lib.common import audit_log, current_task_id, hook_input, is_halted, load_project_config, read_json, resolve_path, resolve_project_root, trace_hook, visible_dispatch_files
 
 GATED_TOOLS = {"Write", "Edit", "MultiEdit", "Bash", "Glob", "Grep", "ListDir"}
 
@@ -153,13 +153,7 @@ def main():
                 _deny(f"Agent '{agent}' is DELIVERED — awaiting reviewer consensus. Only 'git commit' is allowed.")
 
     # WORKING / WAITING: ready file exists — check inbox depth
-    try:
-        inbox_files = [
-            p for p in inbox_dir.iterdir()
-            if p.is_file() and p.suffix != ".tmp"
-        ] if inbox_dir.is_dir() else []
-    except OSError:
-        inbox_files = []
+    inbox_files = visible_dispatch_files(inbox_dir)
 
     if inbox_files:
         # WORKING: task present in inbox — allow

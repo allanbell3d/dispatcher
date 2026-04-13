@@ -341,6 +341,21 @@ function Pause-Notice([string]$Message) {
     [void][Console]::ReadKey($true)
 }
 
+function Get-OrchestratorCtlPath {
+    return (Join-Path $EngineRoot "scripts\orchestratorctl.py")
+}
+
+function Invoke-OrchestratorCtl {
+    param(
+        [Parameter(Mandatory=$true)][string[]]$Args
+    )
+    $ctl = Get-OrchestratorCtlPath
+    if (-not (Test-Path $ctl)) {
+        throw "orchestratorctl.py not found at $ctl"
+    }
+    return & $PYTHON_EXE $ctl @Args
+}
+
 function Prompt-TextValue {
     param(
         [Parameter(Mandatory=$true)][string]$Prompt,
@@ -379,6 +394,77 @@ function Prompt-YesNo {
 function Escape-PSString([string]$Value) {
     if ($null -eq $Value) { return "" }
     return $Value.Replace("'", "''")
+}
+
+function Get-ReviewerConfig {
+    if (-not (Test-Path $ConfigPath)) { return $null }
+    try {
+        $cfg = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
+        return $cfg["reviewers"]
+    } catch {
+        return $null
+    }
+}
+
+function Invoke-ReviewerSet {
+    $reviewers = Get-ReviewerConfig
+    if (-not $reviewers) {
+        Write-Host "  No reviewers block found in config.json" -ForegroundColor Red
+        Pause-Notice ""
+        return
+    }
+
+    $available = @($reviewers["available"])
+    $active = @($reviewers["active"])
+    $presets = if ($reviewers.ContainsKey("presets")) { $reviewers["presets"] } else { @{} }
+
+    Write-Host ""
+    Write-Host "  Active reviewers: $($active -join ', ')" -ForegroundColor Cyan
+    Write-Host ""
+
+    $items = @()
+    foreach ($presetName in $presets.Keys) {
+        $members = @($presets[$presetName]) -join ", "
+        $items += New-MenuItem -Label "Preset: $presetName  [$members]" -Value @{ type="preset"; name=$presetName }
+    }
+    $items += New-MenuItem -Label "Manual Selection..." -Value @{ type="manual" }
+    $items += New-MenuItem -Label "Done" -Value @{ type="done" }
+
+    $pick = Read-ArrowMenu -Header "Reviewer Set" -Hint "Choose a preset or manual selection." -Items $items
+    if ($pick.action -ne "select") { return }
+    if ($pick.item.Value.type -eq "done") { return }
+
+    try {
+        if ($pick.item.Value.type -eq "preset") {
+            $null = Invoke-OrchestratorCtl @("reviewers", "preset", $pick.item.Value.name, $ProjectRoot)
+            Write-Host "  Applied reviewer preset: $($pick.item.Value.name)" -ForegroundColor Green
+        } elseif ($pick.item.Value.type -eq "manual") {
+            $checked = @{}
+            foreach ($name in $available) {
+                $checked[$name] = $active -contains $name
+            }
+            $selected = Read-CheckboxMenu -Header "Manual Reviewer Selection" -Hint "Space toggles. Enter applies." -Items $available -Checked $checked
+            if ($null -eq $selected) { return }
+            if ($selected.Count -eq 0) {
+                Write-Host "  At least one reviewer must stay active." -ForegroundColor Red
+                Pause-Notice ""
+                return
+            }
+            $selectedNames = @($selected | ForEach-Object { if ($_ -is [string]) { $_ } else { $_.ToString() } })
+            foreach ($name in $available) {
+                if (($selectedNames -contains $name) -and -not ($active -contains $name)) {
+                    $null = Invoke-OrchestratorCtl @("reviewers", "enable", $name, $ProjectRoot)
+                } elseif (-not ($selectedNames -contains $name) -and ($active -contains $name)) {
+                    $null = Invoke-OrchestratorCtl @("reviewers", "disable", $name, $ProjectRoot)
+                }
+            }
+            Write-Host "  Reviewer selection updated." -ForegroundColor Green
+        }
+        $script:Config = Load-Config
+    } catch {
+        Write-Host "  Reviewer update failed: $($_.Exception.Message)" -ForegroundColor Red
+    }
+    Pause-Notice ""
 }
 
 # -----------------------------
@@ -1346,7 +1432,7 @@ function Invoke-DeployAgents {
         $relPath = $af.FullName.Substring($source.Length).TrimStart('\', '/')
         $checkItems += New-MenuItem -Label "$($af.Name)  ($relPath)" -Value @{ name=$af.Name; fullPath=$af.FullName; relPath=$relPath; checked=$true }
     }
-    $selected = Read-CheckboxMenu -Header "Select agents to deploy" -Items $checkItems
+    $selected = Read-CheckboxMenu -Header "Select agents to deploy" -Hint "Space toggles agents. Enter confirms deployment set." -Items $checkItems
     if (-not $selected -or $selected.Count -eq 0) {
         Write-Host "  No agents selected." -ForegroundColor Yellow
         Pause-Notice ""
@@ -2118,20 +2204,21 @@ function Build-MainMenu {
     $items += New-MenuItem -Label "27. Change Project Directory"  -Value @{ type="change_project" }
     $items += New-MenuItem -Label "28. Validate Config"           -Value @{ type="validate_config" }
     $items += New-MenuItem -Label "29. Doctor"                    -Value @{ type="doctor" }
-    $items += New-MenuItem -Label "30. Reset Watcher State"       -Value @{ type="reset_watcher" }
-    $items += New-MenuItem -Label "31. Force Kill Watcher"        -Value @{ type="kill_watcher" }
+    $items += New-MenuItem -Label "30. Reviewer Set..."           -Value @{ type="reviewer_set" }
+    $items += New-MenuItem -Label "31. Reset Watcher State"       -Value @{ type="reset_watcher" }
+    $items += New-MenuItem -Label "32. Force Kill Watcher"        -Value @{ type="kill_watcher" }
     $items += New-MenuItem -Label " " -Value $null -Selectable:$false
 
     # Quick Access
     $items += New-MenuItem -Label "───── Quick Access ─────" -Value $null -Selectable:$false
-    $items += New-MenuItem -Label "32. Audit Log (folder)"        -Value @{ type="open_folder"; path=$LogsDir }
-    $items += New-MenuItem -Label "33. Dispatch Folders"           -Value @{ type="open_folder"; path=$DispatchDir }
-    $items += New-MenuItem -Label "34. Agent Inboxes..."           -Value @{ type="agent_inboxes_menu" }
-    $items += New-MenuItem -Label "35. Config File"                -Value @{ type="open_file"; path=$ConfigPath }
-    $items += New-MenuItem -Label "36. Spec & Plans"               -Value @{ type="open_folder"; path=(Join-Path $ProjectRoot "docs") }
-    $items += New-MenuItem -Label "37. Open Project Folder"        -Value @{ type="open_folder"; path=$ProjectRoot }
+    $items += New-MenuItem -Label "33. Audit Log (folder)"        -Value @{ type="open_folder"; path=$LogsDir }
+    $items += New-MenuItem -Label "34. Dispatch Folders"           -Value @{ type="open_folder"; path=$DispatchDir }
+    $items += New-MenuItem -Label "35. Agent Inboxes..."           -Value @{ type="agent_inboxes_menu" }
+    $items += New-MenuItem -Label "36. Config File"                -Value @{ type="open_file"; path=$ConfigPath }
+    $items += New-MenuItem -Label "37. Spec & Plans"               -Value @{ type="open_folder"; path=(Join-Path $ProjectRoot "docs") }
+    $items += New-MenuItem -Label "38. Open Project Folder"        -Value @{ type="open_folder"; path=$ProjectRoot }
     $items += New-MenuItem -Label " " -Value $null -Selectable:$false
-    $items += New-MenuItem -Label "38. Quit"                       -Value @{ type="quit" }
+    $items += New-MenuItem -Label "39. Quit"                       -Value @{ type="quit" }
 
     return $items
 }
@@ -2149,6 +2236,7 @@ if ($DryRun) {
         "Load-Config", "Get-AgentNames", "Get-SessionPrefix", "Resolve-OrcPath",
         "Get-Theme", "Write-Box", "New-MenuItem", "Read-ArrowMenu", "Read-CheckboxMenu",
         "Pause-Notice", "Prompt-TextValue", "Prompt-YesNo", "Escape-PSString",
+        "Get-OrchestratorCtlPath", "Invoke-OrchestratorCtl", "Get-ReviewerConfig", "Invoke-ReviewerSet",
         "Push-State", "Go-Back", "Cur", "Reset-ToHome", "Get-Breadcrumbs", "Get-StatusLine",
         "Backup-File", "Show-FolderBrowserDialog",
         "Get-WatcherStatus", "Get-AgentReadiness", "Get-CurrentTaskInfo",
@@ -2326,6 +2414,7 @@ Push-State @{
             "change_project"   { Invoke-ChangeProject; continue }
             "validate_config"  { Invoke-ValidateConfig; continue }
             "doctor"           { Invoke-Doctor; continue }
+            "reviewer_set"     { Invoke-ReviewerSet; continue }
             "reset_watcher"    { Invoke-ResetWatcher; (Cur).items = Build-MainMenu; continue }  # rebuild: watcher state changed
             "kill_watcher"     { Invoke-KillWatcher;  (Cur).items = Build-MainMenu; continue }  # rebuild: watcher state changed
 
