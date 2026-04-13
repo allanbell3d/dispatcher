@@ -21,7 +21,7 @@
     "status": "in_progress",
     "title": "No file upload input on fresh form",
     "function": "_upload_photos()",
-    "details": "Related to B1. Upload input not found because page hasn't loaded. Fix B1 should resolve this â€” verify upload input appears after proper wait.",
+    "details": "Related to B1. Upload input not found because page hasn't loaded. Fix B1 should resolve this - verify upload input appears after proper wait.",
     "acceptance_criteria": [
       "File upload input found after form fields are filled",
       "Photos uploaded successfully on fresh form"
@@ -52,7 +52,7 @@
     "status": "pending",
     "title": "Title doubled on draft resume",
     "function": "_fill_form()",
-    "details": "Playwright .fill() doesn't clear React-controlled inputs â€” appends. Need to clear first: triple-click to select all, then fill. Or use page.evaluate to set value directly and dispatch React change event.",
+    "details": "Playwright .fill() doesn't clear React-controlled inputs - it appends. Clear first with select-all, then fill. Or use page.evaluate to set the value directly and dispatch a React change event.",
     "acceptance_criteria": [
       "Title field shows single copy of title text on draft resume",
       "No duplication or truncation"
@@ -188,7 +188,7 @@
     "status": "pending",
     "title": "Room 02 template format permanently corrupted",
     "function": "template",
-    "details": "Restore from git history or manually rebuild. Should start with '# Room 02 â€” ...' heading, not '**Title:**'. Remove injected **Room:**/**Villa:** metadata.",
+    "details": "Restore from git history or manually rebuild. Should start with '# Room 02 - ...' heading, not '**Title:**'. Remove injected **Room:**/**Villa:** metadata.",
     "acceptance_criteria": [
       "Room 02 template starts with # heading",
       "No **Room:** or **Villa:** metadata lines",
@@ -217,7 +217,7 @@
     "task_id": "B15",
     "batch": "high",
     "status": "pending",
-    "title": "Timezone bug â€” dates use UTC not Dubai",
+    "title": "Timezone bug - dates use UTC not Dubai",
     "function": "create_dated_copy()",
     "details": "datetime.now() returns UTC. Use datetime.now(ZoneInfo('Asia/Dubai')) for Dubai timezone. Import from zoneinfo (Python 3.9+).",
     "acceptance_criteria": [
@@ -234,7 +234,7 @@
     "status": "pending",
     "title": "Typos propagated from template to copies",
     "function": "prompt",
-    "details": "Add instruction to AI variation prompt: 'Fix obvious spelling errors in the source text (e.g., Beatifull â†’ Beautiful, dinning â†’ dining).'",
+    "details": "Add instruction to AI variation prompt: 'Fix obvious spelling errors in the source text (for example, Beatifull -> Beautiful and dinning -> dining).'",
     "acceptance_criteria": [
       "AI variation fixes obvious typos",
       "Dated copies don't carry source typos"
@@ -309,7 +309,7 @@
     "status": "pending",
     "title": "yes after draft creates duplicate",
     "function": "handle_draft()",
-    "details": "After creating a dated copy, 'yes' resolves against context â†’ classified as draft again â†’ creates another copy. Add debounce: check if dated copy for this room exists within last 60 seconds.",
+    "details": "After creating a dated copy, 'yes' resolves against context -> classified as draft again -> creates another copy. Add a debounce: check if a dated copy for this room exists within the last 60 seconds.",
     "acceptance_criteria": [
       "Saying 'yes' after draft creation does not create duplicate",
       "Second 'yes' within 60s is treated as acknowledgment, not new command"
@@ -414,7 +414,7 @@
     "status": "pending",
     "title": "Bare post infers room from context",
     "function": "prompt",
-    "details": "Bare 'post' classified as post_room with room from conversation memory. Risky â€” could post wrong room. Require explicit room for post intent.",
+    "details": "Bare 'post' is classified as post_room with a room inferred from conversation memory. Risky - it could post the wrong room. Require an explicit room for post intent.",
     "acceptance_criteria": [
       "'post' without room number asks which room to post",
       "No silent room inference for posting commands"
@@ -519,7 +519,7 @@
     "status": "pending",
     "title": "show all prices needs escalation",
     "function": "classify_intent()",
-    "details": "Haiku can't classify 'show me all the prices' â€” escalates to Sonnet. Add 'all prices'/'price list' to regex fast-path as status intent, or improve Haiku prompt.",
+    "details": "Haiku can't classify 'show me all the prices' and escalates to Sonnet. Add 'all prices'/'price list' to the regex fast path as a status intent, or improve the Haiku prompt.",
     "acceptance_criteria": [
       "'show me all the prices' classified without escalation",
       "Response includes prices for all rooms"
@@ -579,9 +579,10 @@
     "status": "pending",
     "title": "edit room with no instruction sends vague prompt",
     "function": "handle_edit_ad()",
-    "details": "Duplicate of B33. Same fix â€” validate edit instruction before calling AI.",
+    "details": "Related to B33. Validate the edit instruction before calling AI so the handler asks for clarification instead of sending a vague prompt.",
     "acceptance_criteria": [
-      "Same as B33"
+      "'edit room 02' with no instruction asks for clarification",
+      "Does not call AI with empty or vague instruction text"
     ],
     "reference_paths": [
       "service/handlers.py"
@@ -623,7 +624,7 @@
     "status": "pending",
     "title": "Room 17 title style inconsistent",
     "function": "template",
-    "details": "Room 17 title 'Very nice and Affordable furnished bedroom' â€” casual vs formal. Rewrite to match other rooms' style.",
+    "details": "Room 17 title 'Very nice and Affordable furnished bedroom' is more casual than the other room templates. Rewrite it to match the existing formal style.",
     "acceptance_criteria": [
       "Room 17 title matches formal style of other room templates"
     ],
@@ -637,7 +638,7 @@
     "status": "pending",
     "title": "Room 20 title has discount price suffix",
     "function": "template",
-    "details": "Title ends with 'discount price!' â€” inconsistent with other rooms. Remove suffix, keep discount info in body only.",
+    "details": "Title ends with 'discount price!' which is inconsistent with the other rooms. Remove the suffix and keep the discount information in the body only.",
     "acceptance_criteria": [
       "Room 20 title clean, no 'discount price!' suffix"
     ],
@@ -651,7 +652,7 @@
     "status": "pending",
     "title": "Room 05 template typo Beatifull",
     "function": "template",
-    "details": "Fix 'Beatifull' â†’ 'Beautiful' in room 05 template. Also fix 'dinning' â†’ 'dining' in body.",
+    "details": "Fix 'Beatifull' -> 'Beautiful' in the room 05 template. Also fix 'dinning' -> 'dining' in the body.",
     "acceptance_criteria": [
       "No spelling errors in room 05 template"
     ],
@@ -725,9 +726,10 @@
     "status": "pending",
     "title": "All rooms query finds only 1 of 21",
     "function": "_gather_context()",
-    "details": "Related to B32. LLM context too narrow for 'all rooms' queries. Same fix as B32 â€” include all room data.",
+    "details": "Related to B32. LLM context is too narrow for 'all rooms' queries. Include all room data instead of the single-room subset.",
     "acceptance_criteria": [
-      "Same as B32"
+      "Queries about all rooms get data about all rooms",
+      "'what rooms have no price set' finds all matching rooms"
     ],
     "reference_paths": [
       "service/handlers.py"
@@ -737,7 +739,7 @@
     "task_id": "B50",
     "batch": "low",
     "status": "pending",
-    "title": "Multiple checkpoint replies â€” first dropped",
+    "title": "Multiple checkpoint replies - first dropped",
     "function": "_process_message()",
     "details": "When 2 messages arrive during active waiter, first is overwritten by second. Queue checkpoint replies instead of overwriting.",
     "acceptance_criteria": [
