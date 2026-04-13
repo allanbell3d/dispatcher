@@ -1,13 +1,11 @@
 {
-  "id": "B2",
-  "batch": "critical",
-  "status": "in_progress",
+  "task_id": "B2",
   "title": "No file upload input on fresh form",
-  "file": "service/dubizzle.py",
-  "function": "_upload_photos()",
-  "details": "Related to B1. Upload input not found because page hasn't loaded. Fix B1 should resolve this \u00e2\u20ac\u201d verify upload input appears after proper wait.",
-  "acceptance": [
+  "acceptance_criteria": [
     "File upload input found after form fields are filled",
     "Photos uploaded successfully on fresh form"
+  ],
+  "reference_paths": [
+    "service/dubizzle.py"
   ]
 }

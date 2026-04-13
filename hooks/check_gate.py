@@ -15,11 +15,11 @@ import subprocess
 import sys
 import time as _time
 
-ROOT = Path(__file__).resolve().parents[0]
+ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from lib.common import hook_input, load_project_config, read_json, resolve_path, resolve_project_root, trace_hook
+from lib.common import current_task_id, hook_input, load_project_config, read_json, resolve_path, resolve_project_root, trace_hook
 
 
 def _is_plain_git_commit(command: str) -> bool:
@@ -41,27 +41,41 @@ def _deny(reason: str):
 
 
 def main():
+    _t0 = _time.monotonic()
     # P3: opt-in -- inert without agent identity
     agent = os.environ.get("GATE_AGENT_NAME", "").strip()
     if not agent:
+        trace_hook(hook="check_gate", agent="", decision="allow",
+                   elapsed_ms=(_time.monotonic() - _t0) * 1000,
+                   reason="no agent")
         return  # exit 0 = allow
 
     from lib.common import is_hook_disabled
     if is_hook_disabled("check_gate"):
+        trace_hook(hook="check_gate", agent=agent, decision="allow",
+                   elapsed_ms=(_time.monotonic() - _t0) * 1000,
+                   reason="hook disabled")
         return  # exit 0 = allow (disabled hook is transparent)
 
     try:
-        data = json.load(sys.stdin)
+        data = json.loads(sys.stdin.read() or "{}")
     except Exception:
-        return  # malformed stdin -- allow
-
-    _t0 = _time.monotonic()
+        trace_hook(hook="check_gate", agent=agent, decision="deny",
+                   elapsed_ms=(_time.monotonic() - _t0) * 1000,
+                   reason="malformed stdin")
+        _deny("check-gate: malformed hook payload")
 
     tool_name, tool_input, _, _ = hook_input(data)
     if tool_name != "Bash":
+        trace_hook(hook="check_gate", agent=agent, decision="allow",
+                   elapsed_ms=(_time.monotonic() - _t0) * 1000,
+                   tool=tool_name, reason="tool not bash")
         return
     command = str(tool_input.get("command", ""))
     if not _is_plain_git_commit(command):
+        trace_hook(hook="check_gate", agent=agent, decision="allow",
+                   elapsed_ms=(_time.monotonic() - _t0) * 1000,
+                   tool=tool_name, command=command, reason="not plain git commit")
         return
 
     try:
@@ -98,7 +112,7 @@ def main():
     except Exception:
         current_task = {}
 
-    task_id = (current_task.get("id") or current_task.get("task_id") or "").strip()
+    task_id = current_task_id(current_task)
     if not task_id:
         trace_hook(hook="check_gate", agent=agent, decision="deny",
                    elapsed_ms=(_time.monotonic() - _t0) * 1000,

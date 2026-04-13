@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import sys
-ROOT = Path(__file__).resolve().parents[0]
+ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -71,7 +71,6 @@ def main() -> int:
                    reason="file read error")
         print(json.dumps({}))
         return 0
-    move_to_done(path)
     if not content:
         trace_hook(hook="on_file_message", agent=agent,
                    decision="skip", elapsed_ms=(_time.monotonic() - _t0) * 1000,
@@ -81,7 +80,8 @@ def main() -> int:
     trace_hook(hook="on_file_message", agent=agent,
                decision="inject", elapsed_ms=(_time.monotonic() - _t0) * 1000,
                file=str(path))
-    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": f"NEW DISPATCH MESSAGE from {path.name}:\n\n{content}"}}))
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": f"NEW DISPATCH MESSAGE from {path.name}:\n\n{content}"}}), flush=True)
+    move_to_done(path)
     return 0
 
 if __name__ == "__main__":

@@ -1,64 +1,118 @@
 # Smoke Test Guide
 
-## Quick smoke (automated)
+## Automated Smoke
 
-```powershell
-python orchestrator/scripts/dispatch_contract_smoke.py
+```bash
+python scripts/dispatch_contract_smoke.py
 ```
 
-Creates a temp project, runs the watcher for a few seconds, verifies message routing. Self-contained — no external deps.
+Creates a temp project structure, runs message routing checks, verifies dispatch folder creation. Self-contained — no external dependencies.
 
-## Manual smoke — full gate lifecycle
+**Note:** Currently fails due to bootstrap issue. Fix `parents[0]` → `parents[1]` first.
+
+---
+
+## Manual Smoke — Full Gate Lifecycle
 
 ### 1. Pre-flight
-```powershell
-python orchestrator/scripts/orchestratorctl.py doctor
-python orchestrator/scripts/orchestratorctl.py validate
+
+```bash
+python scripts/doctor.py .
+python scripts/validate.py .
 ```
 
-### 2. Install hooks
-```powershell
-python orchestrator/scripts/orchestratorctl.py install-hooks --all
+Both must pass. Doctor checks Python version, psmux/tmux, state directories, hook flags. Validate checks config against `schemas/config_schema.json` and cross-references agent names in routing/gate rules.
+
+### 2. Install Hooks
+
+```bash
+python scripts/install_hooks.py --all
 ```
+
+Verify: `.claude/settings.local.json` contains orchestrator hook entries for all 8 hooks. Each enforcement hook should have the `GATE_AGENT_NAME` condition.
 
 ### 3. Launch
+
 ```powershell
-powershell -File orchestrator/bin/orch_launcher.ps1
+powershell -File bin/orch_launcher.ps1
 ```
-Select 2+ agents. Verify status dashboard shows agents as ready.
 
-### 4. Dispatch a task
-Drop a task JSON in `.orchestrator/tasks/`:
+Select agents. Verify the status dashboard shows agents and watcher as running.
+
+### 4. Dispatch a Task
+
+Drop a task JSON into `.orchestrator/tasks/`:
+
 ```json
-{"task_id": "SMOKE-1", "title": "Test task", "acceptance_criteria": ["Passes"], "reference_paths": ["README.md"]}
+{
+  "task_id": "SMOKE-1",
+  "title": "Test task",
+  "acceptance_criteria": ["File created", "Tests pass"],
+  "reference_paths": ["README.md"]
+}
 ```
-Verify it lands in coder's inbox.
 
-### 5. Verify dispatch-gate states
-- Coder with no ready file → tools allowed (BOOT)
-- Create ready file → tools blocked except Read (WAITING)
-- Task in inbox → tools allowed (WORKING)
-- Done marker + no verdict → only git commit allowed (DELIVERED)
+Verify: task appears in gate-ralph's inbox.
 
-### 6. Verify review fan-out
-Coder writes review_request to outbox. Verify:
-- Watcher copies to each reviewer's inbox
-- Monitor gets CC copy
-- Audit log records the event
+### 5. Verify dispatch_gate States
 
-### 7. Verify commit gate
-- Attempt `git commit` on protected branch with no verdict → BLOCKED
-- Write approved verdict to merged_verdicts → commit ALLOWED
-- Attempt on non-protected branch → ALLOWED regardless
+The dispatch gate controls tool access based on agent state:
 
-### 8. Experiment-rig proof
-Edit `config.agents[]`: add a 3rd reviewer. Change `consensus_rule` to `majority`. Re-run. Zero code changes. Everything works.
+| State | Condition | Tools allowed |
+|-------|-----------|--------------|
+| BOOT | No ready file, no task | All (agent is starting up) |
+| WAITING | Ready file, no inbox task | Read only (waiting for work) |
+| WORKING | Task in inbox | All (actively coding) |
+| DELIVERED | Done marker, no verdict | Git commit only (waiting for review) |
 
-## What to check if things break
+Test each transition by creating/removing the appropriate files.
 
-1. `GATE_AGENT_NAME` set? → `echo $env:GATE_AGENT_NAME` in agent terminal
-2. Hooks installed? → check `settings.local.json` for orchestrator entries
-3. Config valid? → `orch validate`
-4. Watcher running? → check launcher status or `Get-Process python`
-5. Decision trace → `.orchestrator/logs/decision_trace_<session>.log`
-6. Audit log → `.orchestrator/logs/audit.log`
+### 6. Verify Review Fan-Out
+
+Have gate-ralph write a `review_request` JSON to `dispatch/gate-ralph/outbox/`. Verify:
+
+- [ ] Watcher picks it up and copies to `dispatch/gate-architect/inbox/`
+- [ ] Watcher copies to `dispatch/gate-critic/inbox/`
+- [ ] gate-monitor gets a CC copy
+- [ ] Tracker created in `.orchestrator/trackers.json`
+- [ ] Audit log records the fan-out event
+
+### 7. Verify Commit Gate
+
+Test check_gate behavior:
+
+- [ ] `git commit` on `dev` (protected) with no verdict → **BLOCKED** (exit 2)
+- [ ] Write approved verdict to `.orchestrator/merged_verdicts/SMOKE-1.json` → commit **ALLOWED**
+- [ ] `git commit` on a feature branch → **ALLOWED** regardless of verdict state
+
+### 8. Verify Consensus
+
+Write reviewer verdicts to watcher via outbox:
+
+- [ ] One approval, one pending → no merged verdict yet
+- [ ] Both approve → merged verdict written with `"decision": "approved"`
+- [ ] One reject → merged verdict with `"decision": "rejected"`, rework request to gate-ralph
+
+### 9. Experiment-Rig Proof
+
+Edit `.orchestrator/config.json`:
+- Add a 3rd reviewer to `agents[]`, `gate.require_approvals_from`, `routing.review_requests_to`
+- Change `consensus_rule` to `"majority"`
+- Re-run steps 6-8
+
+Everything should work. **Zero code changes.** This is the whole point.
+
+---
+
+## Troubleshooting
+
+| Symptom | Check |
+|---------|-------|
+| `ModuleNotFoundError: lib` | sys.path bootstrap — `parents[0]` should be `parents[1]` |
+| Hook not firing | `GATE_AGENT_NAME` set? → `echo $env:GATE_AGENT_NAME` |
+| Hook fires but no effect | Check `settings.local.json` for the hook entry |
+| Config invalid | `python scripts/validate.py .` |
+| Watcher not running | Launcher status or `Get-Process python` |
+| Gate not blocking | Check `decision_trace` log in `.orchestrator/logs/` and confirm `.flag` halts in `.orchestrator/halts/` |
+| Verdict not merging | Check `trackers.json` — are all required reviewers listed? |
+| Wrong agent identity | Verify `GATE_AGENT_NAME` matches config `agents[].name` exactly |

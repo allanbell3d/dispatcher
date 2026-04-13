@@ -2,7 +2,7 @@
 """Dispatcher orchestrator — shared library."""
 from __future__ import annotations
 
-__version__ = "0.1.10"
+__version__ = "0.1.11"
 
 import hashlib
 import json
@@ -140,19 +140,17 @@ _PATH_KEY_DEFAULTS = {
     "dispatch_root":   "dispatch",
     "plans":           ".orchestrator/plans",
     "tasks":           ".orchestrator/tasks",
-    "tasks_file":      ".orchestrator/tasks/tasks.json",
-    "current_task":    ".orchestrator/current_task.json",
+    "current_task":    ".orchestrator/tasks/current_task.json",
     "trackers":        ".orchestrator/trackers.json",
     "diffs":           ".orchestrator/diffs",
     "audit_log":       ".orchestrator/audit.log",
-    "decision_trace":  ".orchestrator/decision_trace.log",
+    "decision_trace":  ".orchestrator/logs/decision_trace.log",
     "merged_verdicts": ".orchestrator/merged_verdicts",
     "halts":           ".orchestrator/halts",
     "playwright_tests": "tests/e2e",
     "logs":             ".orchestrator/logs",
     "runtime_flags":    ".orchestrator/runtime_flags",
-    "approvals":        ".orchestrator/approvals",
-    "memories":         "memories",
+    "memory":           "memory",
     "docs":             "docs",
 }
 
@@ -312,11 +310,12 @@ def trace_hook(
                 session_id = sid_file.read_text(encoding="utf-8").strip()
         except Exception:
             pass
-        fname = f"decision_trace_{session_id}.log" if session_id else "decision_trace.log"
-
-        log_dir = resolve_path("logs", project_root, config)
-        log_dir.mkdir(parents=True, exist_ok=True)
-        log_path = log_dir / fname
+        trace_path = resolve_path("decision_trace", project_root, config)
+        if session_id:
+            log_path = trace_path.with_name(f"{trace_path.stem}_{session_id}{trace_path.suffix}")
+        else:
+            log_path = trace_path
+        log_path.parent.mkdir(parents=True, exist_ok=True)
 
         tz_name = ((config or {}).get("session") or {}).get("timezone", DEFAULT_TZ)
         try:
@@ -346,7 +345,7 @@ def trace_hook(
             if nas_root:
                 nas_log_dir = Path(nas_root) / "logs" / (config or {}).get("project", "unknown")
                 nas_log_dir.mkdir(parents=True, exist_ok=True)
-                fd2 = os.open(str(nas_log_dir / fname), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+                fd2 = os.open(str(nas_log_dir / log_path.name), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
                 try:
                     os.write(fd2, encoded)
                 finally:
@@ -357,21 +356,13 @@ def trace_hook(
         pass
 
 
-def strip_gate_prefix(agent: str, config: dict = None) -> str:
-    """Strip session prefix from GATE_AGENT_NAME to get config agent name.
-
-    The launcher sets GATE_AGENT_NAME = '<prefix><name>' (e.g. 'gate-ralph').
-    Hooks use this to resolve dispatch paths and config lookups, which use
-    bare agent names. Prefix comes from config.session.session_prefix (default 'gate-').
-    """
-    prefix = ((config or {}).get("session") or {}).get("session_prefix", "gate-")
-    if prefix and agent.startswith(prefix):
-        return agent[len(prefix):]
-    return agent
-
-
 def agent_names(config: dict) -> list[str]:
     return [a.get("name") for a in config.get("agents", []) if a.get("name")]
+
+
+def current_task_id(task: dict | None) -> str:
+    task = task or {}
+    return str(task.get("task_id") or "").strip()
 
 
 def hook_input(payload: dict) -> tuple[str, dict, dict, int]:

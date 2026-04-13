@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import sys
-ROOT = Path(__file__).resolve().parents[0]
+ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -99,6 +99,10 @@ def move_file(src: Path, dest_dir: Path):
     if target.exists():
         target = dest_dir / f"{src.stem}-{int(time.time())}{src.suffix}"
     src.replace(target)
+
+
+def should_archive_outbox(delivered_count: int, deferred: bool) -> bool:
+    return delivered_count > 0
 
 
 def save_trackers(path: Path, trackers: dict[str, FanInTracker]):
@@ -314,7 +318,7 @@ def main() -> int:
         recipients.discard(sender)
         return [r for r in sorted(recipients) if r]
 
-    def deliver_message(sender: str, parsed: dict, source_file: Path, direct_to: list[str] | None = None):
+    def deliver_message(sender: str, parsed: dict, source_file: Path, direct_to: list[str] | None = None) -> tuple[int, bool]:
         recipients = direct_to or valid_recipients(parsed)
         task_id = parsed.get("task_id") or source_file.stem
         body = parsed.get("body", "")
@@ -322,11 +326,14 @@ def main() -> int:
         verdict = parsed.get("verdict", "")
         content = compose_message(config, sender, recipients, msg_type, task_id, body, verdict)
         fan_in_cfg = config.get("fan_in", {}).get(msg_type)
+        delivered_count = 0
+        deferred = False
         for recipient in recipients:
             if require_ready and recipient != escalation_target:
                 ready = dispatch_dir / recipient / "ready"
                 if not ready.exists():
                     log(f"DEFER {source_file.name}: {recipient} not ready")
+                    deferred = True
                     continue
             ensure_dispatch_dirs(dispatch_dir, recipient)
             target = dispatch_dir / recipient / "inbox" / compute_message_name(f"from-{sender}", task_id or recipient, config)
@@ -334,7 +341,8 @@ def main() -> int:
             queue_wake(recipient, content)
             log(f"DELIVER {source_file.name}: {sender} -> {recipient} ({msg_type})")
             monitor_buffer.append(f"{sender} -> {recipient} ({msg_type}) {task_id}")
-        if fan_in_cfg and recipients:
+            delivered_count += 1
+        if fan_in_cfg and delivered_count > 0:
             trackers[task_id] = FanInTracker(
                 request_id=task_id,
                 msg_type=msg_type,
@@ -346,8 +354,9 @@ def main() -> int:
             )
             save_trackers(tracker_path, trackers)
             log(f"FAN-IN START {task_id}: waiting for {trackers[task_id].required}")
+        return delivered_count, deferred
 
-    def handle_review_request(sender: str, parsed: dict, source_file: Path) -> bool:
+    def handle_review_request(sender: str, parsed: dict, source_file: Path) -> tuple[bool, int, bool]:
         """
         Explicit fan-out for TYPE: review_request messages.
 
@@ -362,10 +371,12 @@ def main() -> int:
         body = parsed.get("body", "")
         msg_type = parsed.get("type", "review_request")
         verdict = parsed.get("verdict", "")
+        delivered_count = 0
+        deferred = False
 
         if not reviewers:
             log(f"WARN review_request {source_file.name}: routing.review_requests_to is empty — falling back to generic delivery")
-            return False
+            return False, 0, False
 
         content = compose_message(config, sender, reviewers, msg_type, task_id, body, verdict)
         delivered_to: list[str] = []
@@ -375,6 +386,7 @@ def main() -> int:
                 ready = dispatch_dir / reviewer / "ready"
                 if not ready.exists():
                     log(f"DEFER review_request {source_file.name}: {reviewer} not ready")
+                    deferred = True
                     continue
             ensure_dispatch_dirs(dispatch_dir, reviewer)
             target = dispatch_dir / reviewer / "inbox" / compute_message_name(f"review-{sender}", task_id, config)
@@ -383,6 +395,7 @@ def main() -> int:
             log(f"REVIEW-FAN-OUT {source_file.name}: {sender} -> {reviewer} ({msg_type})")
             monitor_buffer.append(f"review_request fan-out {sender} -> {reviewer} task={task_id}")
             delivered_to.append(reviewer)
+            delivered_count += 1
 
         for cc in cc_targets:
             if cc in reviewers or cc == sender:
@@ -390,6 +403,7 @@ def main() -> int:
             if require_ready and cc != escalation_target:
                 ready = dispatch_dir / cc / "ready"
                 if not ready.exists():
+                    deferred = True
                     continue
             ensure_dispatch_dirs(dispatch_dir, cc)
             cc_content = compose_message(config, sender, [cc], msg_type, task_id, body, verdict)
@@ -397,6 +411,7 @@ def main() -> int:
             write_message(cc_file, cc_content)
             queue_wake(cc, cc_content)
             log(f"REVIEW-CC {source_file.name}: {sender} -> {cc} ({msg_type})")
+            delivered_count += 1
 
         # Use "review" key (config schema defines fan_in.review, not fan_in.review_request)
         fan_in_cfg = config.get("fan_in", {}).get("review")
@@ -423,7 +438,7 @@ def main() -> int:
             cc=cc_targets,
             source_file=source_file.name,
         )
-        return True
+        return True, delivered_count, deferred
 
     log(f"Watcher started project={project_root} dispatch={dispatch_dir} wake_mechanism={wake_mechanism}")
 
@@ -453,11 +468,15 @@ def main() -> int:
                     continue
                 parsed = parse_message(content)
                 parsed["from"] = parsed.get("from") or sender
+                archive = False
                 if parsed.get("type") == "review_request":
-                    handle_review_request(parsed["from"], parsed, outbox_file)
+                    handled, delivered_count, deferred = handle_review_request(parsed["from"], parsed, outbox_file)
+                    archive = handled and should_archive_outbox(delivered_count, deferred)
                 else:
-                    deliver_message(parsed["from"], parsed, outbox_file)
-                move_file(outbox_file, dispatch_dir / sender / "archive")
+                    delivered_count, deferred = deliver_message(parsed["from"], parsed, outbox_file)
+                    archive = should_archive_outbox(delivered_count, deferred)
+                if archive:
+                    move_file(outbox_file, dispatch_dir / sender / "archive")
 
             # process reports
             for report_file in sort_files_by_mtime(dispatch_dir.glob("*/reports/*")):

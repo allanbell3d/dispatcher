@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import sys
-ROOT = Path(__file__).resolve().parents[0]
+ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -24,6 +24,7 @@ def main() -> int:
     project_root = resolve_project_root(args.project)
     config = load_project_config(project_root)
     orchestrator_root, agents_root = resolve_shared_roots(config)
+    local_engine_root = project_root.resolve() if (project_root / "hooks").is_dir() else orchestrator_root
 
     failures = 0
     status("python", sys.version_info >= (3, 10), sys.version.split()[0])
@@ -31,9 +32,16 @@ def main() -> int:
         failures += 1
 
     dispatch_dir = resolve_path("dispatch_root", project_root, config)
-    memories_dir = (project_root / config.get("paths", {}).get("memories_dir", "memories")).resolve()
-    for label, path in [("project_root", project_root), ("dispatch_dir", dispatch_dir), ("memories_dir", memories_dir), ("orchestrator_root", orchestrator_root), ("agents_root", agents_root)]:
-        ok = path.exists()
+    memory_dir = resolve_path("memory", project_root, config)
+    local_agents_root = (project_root / "agents").resolve()
+    path_checks = [
+        ("project_root", project_root, True),
+        ("dispatch_dir", dispatch_dir, True),
+        ("memory_dir", memory_dir, True),
+        ("orchestrator_root", local_engine_root, local_engine_root.exists()),
+        ("agents_root", agents_root if agents_root.exists() else local_agents_root, agents_root.exists() or local_agents_root.exists()),
+    ]
+    for label, path, ok in path_checks:
         status(label, ok, str(path))
         failures += 0 if ok else 1
 
@@ -45,8 +53,8 @@ def main() -> int:
 
     logs_dir = resolve_path("logs", project_root, config)
     runtime_dir = resolve_path("runtime_flags", project_root, config)
-    approvals_dir = (project_root / config.get("paths", {}).get("approvals_dir", ".orchestrator/approvals")).resolve()
-    for label, path in [("logs_dir", logs_dir), ("runtime_dir", runtime_dir), ("approvals_dir", approvals_dir)]:
+    verdicts_dir = resolve_path("merged_verdicts", project_root, config)
+    for label, path in [("logs_dir", logs_dir), ("runtime_dir", runtime_dir), ("merged_verdicts_dir", verdicts_dir)]:
         try:
             path.mkdir(parents=True, exist_ok=True)
             test = path / ".write-test"
@@ -77,7 +85,7 @@ def main() -> int:
         "monitor_ingest.py", "activity_logger.py", "dispatch_next_bug.py",
         "on_file_message.py", "stop_notify.py",
     ]
-    hooks_dir = orchestrator_root / "hooks"
+    hooks_dir = local_engine_root / "hooks"
     for hook_name in hook_names:
         hp = hooks_dir / hook_name
         ok = hp.is_file()
@@ -85,7 +93,7 @@ def main() -> int:
         failures += 0 if ok else 1
 
     # sprint_profiles directory
-    sp_dir = orchestrator_root / "sprint_profiles"
+    sp_dir = resolve_path("state_root", project_root, config) / "sprint_profiles"
     ok = sp_dir.is_dir()
     status("sprint_profiles_dir", ok, str(sp_dir))
     # Not a failure -- advisory only

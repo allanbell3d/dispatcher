@@ -102,6 +102,11 @@
           "default": ".orchestrator/audit.log",
           "description": "Single append-only audit trail (engine-private). (e.g., '.orchestrator/audit.log')"
         },
+        "decision_trace": {
+          "type": "string",
+          "default": ".orchestrator/logs/decision_trace.log",
+          "description": "Canonical decision-trace log path. Session-specific files append the session id before the suffix."
+        },
         "merged_verdicts": {
           "type": "string",
           "description": "Watcher output, commit-gate input. Merged verdicts per task (engine-private). (e.g., '.orchestrator/merged_verdicts')"

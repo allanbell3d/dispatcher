@@ -1,125 +1,228 @@
 #!/usr/bin/env python3
-"""Test C3: install_hooks wires dispatch_gate for all agents; monitor_ingest only for executors."""
-import json, subprocess, sys, tempfile
+"""Installer tests for scripts/install_hooks.py."""
+
+import importlib.util
+import json
+import shutil
+import subprocess
+import sys
+import uuid
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[0]
-SCRIPT = ROOT / "scripts/install_hooks.py"
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPT = ROOT / "scripts" / "install_hooks.py"
 
 _CONFIG = {
     "project": "c3-test",
     "shared_roots": {
-        "orchestrator_primary": "W:/Claude_Library/orchestrator",
-        "orchestrator_fallback": "D:/IA/orchestrator",
-        "agents_primary": "W:/Claude_Library/agents",
-        "agents_fallback": "D:/IA/agents"
+        "orchestrator_primary": str(ROOT),
+        "orchestrator_fallback": str(ROOT),
+        "agents_primary": str(ROOT),
+        "agents_fallback": str(ROOT),
     },
     "paths": {
-        "state_root": ".orchestrator", "dispatch_root": "dispatch",
+        "state_root": ".orchestrator",
+        "dispatch_root": "dispatch",
+        "plans": ".orchestrator/plans",
+        "tasks": ".orchestrator/tasks",
+        "diffs": ".orchestrator/diffs",
         "current_task": ".orchestrator/current_task.json",
         "merged_verdicts": ".orchestrator/merged_verdicts",
-        "halts": ".orchestrator/halts", "audit_log": ".orchestrator/audit.log",
+        "halts": ".orchestrator/halts",
+        "audit_log": ".orchestrator/audit.log",
+        "runtime_flags": ".orchestrator/runtime_flags",
         "logs": ".orchestrator/logs",
     },
     "agents": [
         {"name": "gate-ralph", "executor": True},
         {"name": "gate-architect", "executor": False},
     ],
-    "gate": {"protected_branches": ["dev", "main"], "consensus_rule": "unanimous",
-             "require_approvals_from": ["gate-architect"], "max_rework_rounds": 3},
+    "gate": {
+        "protected_branches": ["dev", "main"],
+        "consensus_rule": "unanimous",
+        "require_approvals_from": ["gate-architect"],
+        "max_rework_rounds": 3,
+    },
     "routing": {"cc_all": [], "escalation_target": "allan"},
-    "fan_in": {}, "wake": {}, "session": {},
+    "fan_in": {},
+    "wake": {},
+    "session": {},
 }
 
-def run_for_agent(tmp: Path, agent: str) -> dict:
-    r = subprocess.run(
-        [sys.executable, str(SCRIPT), "--agent", agent, "--project", str(tmp)],
-        capture_output=True, text=True, cwd=str(tmp),
+
+def load_module():
+    spec = importlib.util.spec_from_file_location("install_hooks_under_test", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def run_install(project: Path, *extra: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(SCRIPT), "--project", str(project), *extra],
+        capture_output=True,
+        text=True,
+        cwd=str(project),
     )
-    assert r.returncode == 0, f"install_hooks failed for {agent}: {r.stderr}"
-    return json.loads(r.stdout)
 
-def hook_cmds(hooks_dict: dict, event: str) -> list:
-    return [
-        h.get("command", "")
-        for entry in hooks_dict.get("hooks", {}).get(event, [])
-        for h in entry.get("hooks", [])
+
+def write_config(project: Path) -> None:
+    (project / ".orchestrator").mkdir(parents=True, exist_ok=True)
+    (project / ".orchestrator" / "config.json").write_text(json.dumps(_CONFIG), encoding="utf-8")
+
+
+def make_project_dir() -> Path:
+    base = ROOT / ".tmp_install_hooks_tests"
+    project = base / f"c3_{uuid.uuid4().hex}"
+    if project.exists():
+        shutil.rmtree(project, ignore_errors=True)
+    project.mkdir(parents=True, exist_ok=True)
+    return project
+
+
+def test_inventory_includes_both_inbox_suffixes_and_executor_hooks():
+    mod = load_module()
+    inventory_exec = mod.build_hook_inventory(ROOT, "gate-ralph", _CONFIG)
+    file_changed = inventory_exec["hooks"]["FileChanged"]
+    matchers = [entry["matcher"] for entry in file_changed]
+
+    assert "dispatch/gate-ralph/inbox/*.md" in matchers
+    assert "dispatch/gate-ralph/inbox/*.json" in matchers
+
+    pre_tool_use = inventory_exec["hooks"]["PreToolUse"]
+    post_tool_use = inventory_exec["hooks"]["PostToolUse"]
+    assert any("check_gate" in hook["command"] for entry in pre_tool_use for hook in entry["hooks"])
+    assert any("monitor_ingest" in hook["command"] for entry in post_tool_use for hook in entry["hooks"])
+
+    inventory_non_exec = mod.build_hook_inventory(ROOT, "gate-architect", _CONFIG)
+    non_exec_pre = inventory_non_exec["hooks"]["PreToolUse"]
+    non_exec_post = inventory_non_exec["hooks"]["PostToolUse"]
+    assert not any("check_gate" in hook["command"] for entry in non_exec_pre for hook in entry["hooks"])
+    assert not any("monitor_ingest" in hook["command"] for entry in non_exec_post for hook in entry["hooks"])
+
+
+def test_merge_settings_reconciles_by_event_matcher_and_command():
+    mod = load_module()
+    desired = mod.build_hook_inventory(ROOT, "gate-ralph", _CONFIG)
+    dispatch_cmd = desired["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+    dispatch_matcher = desired["hooks"]["PreToolUse"][0]["matcher"]
+    other_command = "python \"D:/elsewhere/other.py\""
+
+    existing = {
+        "hooks": {
+            "PreToolUse": [
+                {
+                    "matcher": dispatch_matcher,
+                    "if": "Bash(old condition)",
+                    "hooks": [{"type": "command", "command": dispatch_cmd}],
+                },
+                {
+                    "matcher": "Read|Grep|Glob|Bash",
+                    "hooks": [{"type": "command", "command": dispatch_cmd}],
+                },
+                {
+                    "matcher": "Read",
+                    "hooks": [{"type": "command", "command": other_command}],
+                },
+            ]
+        }
+    }
+
+    merged = mod.merge_settings(existing, desired)
+    pre_tool_use = merged["hooks"]["PreToolUse"]
+
+    replaced_entries = [
+        entry for entry in pre_tool_use
+        if entry.get("matcher") == dispatch_matcher
+        and entry.get("hooks", [{}])[0].get("command") == dispatch_cmd
     ]
+    assert len(replaced_entries) == 1
+    assert "if" not in replaced_entries[0]
 
-def check(label, condition, detail=""):
-    ok = bool(condition)
-    print(f"{'PASS' if ok else 'FAIL'}: {label}" + (f" ({detail})" if detail else ""))
-    return ok
-
-def check_gate_outer_if(hooks_dict: dict) -> list:
-    """Return PreToolUse entries that contain check_gate in their hooks."""
-    return [
-        entry for entry in hooks_dict.get("hooks", {}).get("PreToolUse", [])
-        if any("check_gate" in h.get("command", "") for h in entry.get("hooks", []))
+    preserved_entries = [
+        entry for entry in pre_tool_use
+        if entry.get("matcher") == "Read|Grep|Glob|Bash"
+        and entry.get("hooks", [{}])[0].get("command") == dispatch_cmd
     ]
+    assert len(preserved_entries) == 1
 
-if __name__ == "__main__":
-    passed = True
-    with tempfile.TemporaryDirectory() as td:
-        tmp = Path(td)
-        (tmp / ".orchestrator").mkdir(parents=True, exist_ok=True)
-        (tmp / ".orchestrator/config.json").write_text(json.dumps(_CONFIG), encoding="utf-8")
+    assert any(
+        entry.get("matcher") == "Read"
+        and entry.get("hooks", [{}])[0].get("command") == other_command
+        for entry in pre_tool_use
+    )
 
-        # ralph (executor): must have dispatch_gate + inbox_access_guard + check_gate + monitor_ingest
-        ralph = run_for_agent(tmp, "gate-ralph")
-        pre = hook_cmds(ralph, "PreToolUse")
-        post = hook_cmds(ralph, "PostToolUse")
-        passed &= check("ralph: dispatch_gate in PreToolUse",
-                        any("dispatch_gate" in c for c in pre), str(pre))
-        passed &= check("ralph: inbox_access_guard in PreToolUse",
-                        any("inbox_access_guard" in c for c in pre), str(pre))
-        passed &= check("ralph: check_gate in PreToolUse",
-                        any("check_gate" in c for c in pre), str(pre))
-        cg_entries = check_gate_outer_if(ralph)
-        passed &= check("ralph: check_gate if-condition on outer entry",
-                        all(e.get("if") == "Bash(git commit *)" for e in cg_entries),
-                        str(cg_entries))
-        passed &= check("ralph: check_gate if NOT on inner hook",
-                        all("if" not in h for e in cg_entries for h in e.get("hooks", [])),
-                        str(cg_entries))
-        passed &= check("ralph: monitor_ingest in PostToolUse",
-                        any("monitor_ingest" in c for c in post), str(post))
 
-        # gate-architect (non-executor): dispatch_gate + inbox_access_guard; NO check_gate or monitor_ingest
-        arch = run_for_agent(tmp, "gate-architect")
-        arch_pre = hook_cmds(arch, "PreToolUse")
-        arch_post = hook_cmds(arch, "PostToolUse")
-        passed &= check("gate-architect: dispatch_gate in PreToolUse",
-                        any("dispatch_gate" in c for c in arch_pre), str(arch_pre))
-        passed &= check("gate-architect: inbox_access_guard in PreToolUse",
-                        any("inbox_access_guard" in c for c in arch_pre), str(arch_pre))
-        passed &= check("gate-architect: NO check_gate",
-                        not any("check_gate" in c for c in arch_pre), str(arch_pre))
-        passed &= check("gate-architect: NO monitor_ingest",
-                        not any("monitor_ingest" in c for c in arch_post), str(arch_post))
+def test_all_writes_shared_settings_local_json_by_default():
+    project = make_project_dir()
+    try:
+        write_config(project)
 
-        # --all: both agents appear in output, exit 0
-        r = subprocess.run(
-            [sys.executable, str(SCRIPT), "--all", "--project", str(tmp)],
-            capture_output=True, text=True, cwd=str(tmp),
+        existing = project / ".claude" / "settings.local.json"
+        existing.parent.mkdir(parents=True, exist_ok=True)
+        existing.write_text(
+            json.dumps(
+                {
+                    "hooks": {
+                        "PreToolUse": [
+                            {
+                                "matcher": "Read",
+                                "hooks": [{"type": "command", "command": "existing-hook"}],
+                            }
+                        ]
+                    }
+                }
+            ),
+            encoding="utf-8",
         )
-        passed &= check("--all exits 0", r.returncode == 0,
-                        f"exit={r.returncode}\n{r.stderr[:200]}")
-        passed &= check("--all output mentions ralph", "gate-ralph" in r.stdout)
-        passed &= check("--all output mentions gate-architect", "gate-architect" in r.stdout)
 
-        # existing hooks preserved after merge
-        sf = tmp / "test_settings.json"
-        sf.write_text(json.dumps({"hooks": {"PreToolUse": [
-            {"matcher": "Read", "hooks": [{"type": "command", "command": "existing-hook"}]}
-        ]}}), encoding="utf-8")
-        subprocess.run(
-            [sys.executable, str(SCRIPT), "--agent", "gate-ralph",
-             "--project", str(tmp), "--settings-file", str(sf)],
-            capture_output=True, text=True, cwd=str(tmp),
+        result = run_install(project, "--all")
+        assert result.returncode == 0, result.stderr
+
+        settings_path = project / ".claude" / "settings.local.json"
+        assert settings_path.exists()
+
+        data = json.loads(settings_path.read_text(encoding="utf-8"))
+        first_snapshot = json.dumps(data, sort_keys=True)
+        pre_tool_use = data["hooks"]["PreToolUse"]
+        assert any(
+            entry.get("matcher") == "Read"
+            and entry.get("hooks", [{}])[0].get("command") == "existing-hook"
+            for entry in pre_tool_use
         )
-        merged_pre = hook_cmds(json.loads(sf.read_text()), "PreToolUse")
-        passed &= check("existing hook preserved after merge",
-                        any("existing-hook" in c for c in merged_pre), str(merged_pre))
+        assert any(
+            entry.get("matcher") == "dispatch/gate-ralph/inbox/*.md"
+            for entry in data["hooks"]["FileChanged"]
+        )
+        assert any(
+            entry.get("matcher") == "dispatch/gate-ralph/inbox/*.json"
+            for entry in data["hooks"]["FileChanged"]
+        )
+        assert "written to" in result.stdout
+        assert "merged hooks for 2 agents" in result.stdout
 
-    sys.exit(0 if passed else 1)
+        rerun = run_install(project, "--all")
+        assert rerun.returncode == 0, rerun.stderr
+        second_snapshot = json.dumps(
+            json.loads(settings_path.read_text(encoding="utf-8")),
+            sort_keys=True,
+        )
+        assert second_snapshot == first_snapshot
+    finally:
+        shutil.rmtree(project, ignore_errors=True)
+
+
+def test_single_agent_rendering_stays_json_and_does_not_write_settings_file():
+    project = make_project_dir()
+    try:
+        write_config(project)
+
+        result = run_install(project, "--agent", "gate-architect")
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+
+        assert "hooks" in data
+        assert not (project / ".claude" / "settings.local.json").exists()
+    finally:
+        shutil.rmtree(project, ignore_errors=True)

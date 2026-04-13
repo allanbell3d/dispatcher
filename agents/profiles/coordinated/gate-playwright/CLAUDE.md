@@ -9,13 +9,13 @@ Read your shared role prompt:
 - `{shared_agents_root}/profiles/coordinated/gate-playwright/role_prompt.md`
 
 Then read your project overlay:
-- `memories/gate-playwright/notes.md`
-- `memories/gate-playwright/startup_protocol.md`
+- `memory/gate-playwright/notes.md`
+- `memory/gate-playwright/startup_protocol.md`
 
 Live communication:
-- inbound: `dispatch/playwright/active/`
-- outbound: `dispatch/playwright/outbox/`
-- structured replies: `dispatch/playwright/reports/`
+- inbound: `dispatch/gate-playwright/inbox/`
+- outbound: `dispatch/gate-playwright/outbox/`
+- structured replies: `dispatch/gate-playwright/reports/`
 
 Private project control plane:
 - `.orchestrator/`

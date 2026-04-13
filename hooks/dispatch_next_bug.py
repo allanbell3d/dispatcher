@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import sys
-ROOT = Path(__file__).resolve().parents[0]
+ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -14,14 +14,29 @@ from lib.common import hook_input, load_project_config, read_json, resolve_path,
 
 TASK_TAG_RE = re.compile(r"\[task:([A-Za-z0-9._-]+)\]|task:([A-Za-z0-9._-]+)", re.I)
 
-def archive_approvals(approvals_dir: Path, task_id: str):
-    archive_dir = approvals_dir / "archive"
+
+def task_identity(data: dict) -> str:
+    return str(data.get("task_id") or data.get("id") or "").strip()
+
+
+def canonical_task_snapshot(data: dict) -> dict:
+    snapshot = dict(data)
+    task_id = task_identity(snapshot)
+    if task_id:
+        snapshot["task_id"] = task_id
+    snapshot.pop("id", None)
+    return snapshot
+
+def archive_verdict(verdicts_dir: Path, task_id: str):
+    verdict_file = verdicts_dir / f"{task_id}.json"
+    if not verdict_file.exists():
+        return
+    archive_dir = verdicts_dir / "archive"
     archive_dir.mkdir(parents=True, exist_ok=True)
-    for path in approvals_dir.glob(f"{task_id}-*.json"):
-        target = archive_dir / path.name
-        if target.exists():
-            target = archive_dir / f"{path.stem}-used{path.suffix}"
-        path.replace(target)
+    target = archive_dir / verdict_file.name
+    if target.exists():
+        target = archive_dir / f"{verdict_file.stem}-used{verdict_file.suffix}"
+    verdict_file.replace(target)
 
 def main() -> int:
     if not os.environ.get('GATE_AGENT_NAME', '').strip():
@@ -52,10 +67,10 @@ def main() -> int:
     project_root = resolve_project_root()
     config = load_project_config(project_root)
     current_task_file = resolve_path("current_task", project_root, config)
-    tasks_file = resolve_path("tasks_file", project_root, config)
-    approvals_dir = resolve_path("approvals", project_root, config)
+    tasks_path = resolve_path("tasks", project_root, config) / "tasks.json"
+    verdicts_dir = resolve_path("merged_verdicts", project_root, config)
     current = read_json(current_task_file, {})
-    task_id = current.get("id")
+    task_id = task_identity(current)
     if not task_id:
         trace_hook(hook="dispatch_next_bug", agent=agent,
                    decision="skip", elapsed_ms=(_time.monotonic() - _t0) * 1000,
@@ -74,7 +89,7 @@ def main() -> int:
         print(json.dumps({}))
         return 0
 
-    tasks = read_json(tasks_file, [])
+    tasks = read_json(tasks_path, [])
     if not isinstance(tasks, list):
         trace_hook(hook="dispatch_next_bug", agent=agent,
                    decision="skip", elapsed_ms=(_time.monotonic() - _t0) * 1000,
@@ -86,36 +101,39 @@ def main() -> int:
     next_task = None
     current_batch = current.get("batch")
     for item in tasks:
-        if item.get("id") == task_id:
+        if task_identity(item) == task_id:
             item["status"] = "done"
     for item in tasks:
         if item.get("status") == "pending":
             next_task = item
             break
 
-    archive_approvals(approvals_dir, task_id)
-    write_json(tasks_file, tasks)
+    archive_verdict(verdicts_dir, task_id)
+    write_json(tasks_path, tasks)
 
     if next_task:
-        next_task = dict(next_task)
+        next_task = canonical_task_snapshot(next_task)
         next_task["status"] = "in_progress"
+        next_task_id = task_identity(next_task)
         for item in tasks:
-            if item.get("id") == next_task.get("id"):
+            if task_identity(item) == next_task_id:
                 item["status"] = "in_progress"
-        write_json(tasks_file, tasks)
+        write_json(tasks_path, tasks)
         write_json(current_task_file, next_task)
         additional = (
             f"TASK COMPLETE: {task_id}\n"
-            f"NEXT TASK: {next_task.get('id')} -- {next_task.get('title')}\n"
-            f"FILE: {next_task.get('file','')}\n"
-            f"DETAILS: {next_task.get('details','')}\n"
+            f"NEXT TASK: {next_task_id}"
         )
+        if next_task.get("title"):
+            additional += f" -- {next_task.get('title')}\n"
+        else:
+            additional += "\n"
         if config.get("session", {}).get("halt_between_batches") and current_batch and next_task.get("batch") != current_batch:
             additional += "\nBATCH BOUNDARY: stop and wait for Allan before continuing."
         trace_hook(hook="dispatch_next_bug", agent=agent,
                    decision="advance", elapsed_ms=(_time.monotonic() - _t0) * 1000,
                    project_root=project_root, config=config,
-                   completed=task_id, next=next_task.get("id"))
+                   completed=task_id, next=next_task_id)
         print(json.dumps({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": additional}}))
     else:
         trace_hook(hook="dispatch_next_bug", agent=agent,

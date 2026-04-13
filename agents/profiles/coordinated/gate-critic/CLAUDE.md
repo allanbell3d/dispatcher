@@ -9,13 +9,13 @@ Read your shared role prompt:
 - `{shared_agents_root}/profiles/coordinated/gate-critic/role_prompt.md`
 
 Then read your project overlay:
-- `memories/gate-critic/notes.md`
-- `memories/gate-critic/startup_protocol.md`
+- `memory/gate-critic/notes.md`
+- `memory/gate-critic/startup_protocol.md`
 
 Live communication:
-- inbound: `dispatch/critic/active/`
-- outbound: `dispatch/critic/outbox/`
-- structured replies: `dispatch/critic/reports/`
+- inbound: `dispatch/gate-critic/inbox/`
+- outbound: `dispatch/gate-critic/outbox/`
+- structured replies: `dispatch/gate-critic/reports/`
 
 Private project control plane:
 - `.orchestrator/`

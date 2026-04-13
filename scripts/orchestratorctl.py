@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import sys
-ROOT = Path(__file__).resolve().parents[0]
+ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -9,6 +9,10 @@ import argparse
 import subprocess
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
+
+
+def current_task_id(data: dict) -> str:
+    return str(data.get("task_id") or data.get("id") or "").strip()
 
 def run(script: str, extra: list[str]) -> int:
     cmd = [sys.executable, str(SCRIPTS_DIR / script), *extra]
@@ -93,13 +97,16 @@ def cmd_resume(project_path, agent_name: str, refan: bool = False) -> int:
 
     if refan:
         dispatch_dir = resolve_path("dispatch_root", project_root, config)
-        task_id = agent_name  # best-effort: use agent name as task context
+        task_id = ""
         try:
             from lib.common import read_json, resolve_path as rp
             ct = read_json(rp("current_task", project_root, config), {})
-            task_id = ct.get("id") or ct.get("task_id") or agent_name
+            task_id = current_task_id(ct)
         except Exception:
             pass
+        if not task_id:
+            print("No current task_id available -- skipping re-fan-out")
+            return 0
         reviewers = config.get("gate", {}).get("require_approvals_from", [])
         for reviewer in reviewers:
             inbox = dispatch_dir / reviewer / "inbox"
@@ -140,7 +147,7 @@ def cmd_status(project_path) -> int:
     # Current task
     try:
         ct = read_json(resolve_path("current_task", project_root, config), {})
-        task_id = ct.get("id") or ct.get("task_id") or "(none)"
+        task_id = current_task_id(ct) or "(none)"
         task_title = ct.get("title", "")
         print(f"Current task: {task_id}" + (f" -- {task_title}" if task_title else ""))
     except Exception:
@@ -293,7 +300,7 @@ def main() -> int:
         print(f"orchestrator_root={orch_root}")
         print(f"agents_root={agents_root}")
         print(f"dispatch_dir={resolve_path('dispatch_root', project_root, config)}")
-        print(f"memories_dir={resolve_path('memories', project_root, config)}")
+        print(f"memory_dir={resolve_path('memory', project_root, config)}")
         print(f"docs_dir={resolve_path('docs', project_root, config)}")
         return 0
     return 1
