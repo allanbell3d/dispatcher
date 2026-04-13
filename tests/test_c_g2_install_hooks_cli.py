@@ -74,10 +74,8 @@ def test_orchestratorctl_install_hooks_writes_shared_settings_file():
 
         data = json.loads(settings_path.read_text(encoding="utf-8"))
         file_changed = data["hooks"]["FileChanged"]
-        assert any(entry["matcher"] == "dispatch/gate-ralph/inbox/*.md" for entry in file_changed)
-        assert any(entry["matcher"] == "dispatch/gate-ralph/inbox/*.json" for entry in file_changed)
-        assert any(entry["matcher"] == "dispatch/gate-architect/inbox/*.md" for entry in file_changed)
-        assert any(entry["matcher"] == "dispatch/gate-architect/inbox/*.json" for entry in file_changed)
+        assert any(entry["matcher"] == "dispatch/*/inbox/*.md" for entry in file_changed)
+        assert any(entry["matcher"] == "dispatch/*/inbox/*.json" for entry in file_changed)
         assert "written to" in result.stdout
         assert "merged hooks for 2 agents" in result.stdout
     finally:

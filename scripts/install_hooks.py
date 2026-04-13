@@ -79,8 +79,8 @@ def build_hook_inventory(orchestrator_root, agent: str, config: dict) -> dict:
     return {
         "hooks": {
             "FileChanged": [
-                hook_entry(f"dispatch/{agent}/inbox/*.md", hook_root / "on_file_message.py"),
-                hook_entry(f"dispatch/{agent}/inbox/*.json", hook_root / "on_file_message.py"),
+                hook_entry("dispatch/*/inbox/*.md", hook_root / "on_file_message.py"),
+                hook_entry("dispatch/*/inbox/*.json", hook_root / "on_file_message.py"),
             ],
             "PreToolUse": pre_tool_use,
             "PostToolUse": post_tool_use,

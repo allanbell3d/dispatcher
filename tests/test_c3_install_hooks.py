@@ -87,8 +87,8 @@ def test_inventory_includes_both_inbox_suffixes_and_executor_hooks():
     file_changed = inventory_exec["hooks"]["FileChanged"]
     matchers = [entry["matcher"] for entry in file_changed]
 
-    assert "dispatch/gate-ralph/inbox/*.md" in matchers
-    assert "dispatch/gate-ralph/inbox/*.json" in matchers
+    assert "dispatch/*/inbox/*.md" in matchers
+    assert "dispatch/*/inbox/*.json" in matchers
 
     pre_tool_use = inventory_exec["hooks"]["PreToolUse"]
     post_tool_use = inventory_exec["hooks"]["PostToolUse"]
@@ -192,11 +192,11 @@ def test_all_writes_shared_settings_local_json_by_default():
             for entry in pre_tool_use
         )
         assert any(
-            entry.get("matcher") == "dispatch/gate-ralph/inbox/*.md"
+            entry.get("matcher") == "dispatch/*/inbox/*.md"
             for entry in data["hooks"]["FileChanged"]
         )
         assert any(
-            entry.get("matcher") == "dispatch/gate-ralph/inbox/*.json"
+            entry.get("matcher") == "dispatch/*/inbox/*.json"
             for entry in data["hooks"]["FileChanged"]
         )
         assert "written to" in result.stdout
