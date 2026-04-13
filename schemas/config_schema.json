@@ -1,0 +1,402 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Orchestrator Config Schema",
+  "description": "Configuration schema for the orchestrator dispatch + gate engine. Every path is configurable, every count is a list length, every role is a string.",
+  "type": "object",
+  "required": [
+    "project",
+    "shared_roots",
+    "paths",
+    "wake",
+    "session",
+    "agents",
+    "routing",
+    "gate",
+    "fan_in"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "project": {
+      "type": "string",
+      "description": "Project name (e.g., 'advert')"
+    },
+    "shared_roots": {
+      "type": "object",
+      "description": "Shared root paths for orchestrator and agents (primary/fallback resolution)",
+      "required": [
+        "orchestrator_primary",
+        "orchestrator_fallback",
+        "agents_primary",
+        "agents_fallback"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "orchestrator_primary": {
+          "type": "string",
+          "description": "Primary orchestrator root (e.g., 'W:/Claude_Library/orchestrator')"
+        },
+        "orchestrator_fallback": {
+          "type": "string",
+          "description": "Fallback orchestrator root if primary unavailable (e.g., 'D:/IA/orchestrator')"
+        },
+        "agents_primary": {
+          "type": "string",
+          "description": "Primary agents profiles root (e.g., 'W:/Claude_Library/agents')"
+        },
+        "agents_fallback": {
+          "type": "string",
+          "description": "Fallback agents profiles root if primary unavailable (e.g., 'D:/IA/agents')"
+        }
+      }
+    },
+    "paths": {
+      "type": "object",
+      "description": "All file and folder paths (engine-private and agent-facing). Engine code references logical names only; layout is a config decision.",
+      "required": [
+        "state_root",
+        "dispatch_root",
+        "plans",
+        "tasks",
+        "current_task",
+        "trackers",
+        "diffs",
+        "audit_log",
+        "merged_verdicts",
+        "halts",
+        "playwright_tests",
+        "logs",
+        "runtime_flags"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "state_root": {
+          "type": "string",
+          "description": "Engine-private root folder (agent-prohibited). Contains staged data, full plan, etc. (e.g., '.orchestrator')"
+        },
+        "dispatch_root": {
+          "type": "string",
+          "description": "Agent-facing root folder. Contains per-agent inbox/outbox/reports/done/archive (e.g., 'dispatch')"
+        },
+        "plans": {
+          "type": "string",
+          "description": "Full plan files location (engine-private). (e.g., '.orchestrator/plans')"
+        },
+        "tasks": {
+          "type": "string",
+          "description": "Parsed tasks location, staged pre-dispatch (engine-private). (e.g., '.orchestrator/tasks')"
+        },
+        "current_task": {
+          "type": "string",
+          "description": "Current task pointer file path (engine-private). (e.g., '.orchestrator/current_task.json')"
+        },
+        "trackers": {
+          "type": "string",
+          "description": "Watcher fan-in state for restart recovery (engine-private). (e.g., '.orchestrator/trackers.json')"
+        },
+        "diffs": {
+          "type": "string",
+          "description": "Staged diffs for review, keyed by task_id (engine-private). (e.g., '.orchestrator/diffs')"
+        },
+        "audit_log": {
+          "type": "string",
+          "default": ".orchestrator/audit.log",
+          "description": "Single append-only audit trail (engine-private). (e.g., '.orchestrator/audit.log')"
+        },
+        "merged_verdicts": {
+          "type": "string",
+          "description": "Watcher output, commit-gate input. Merged verdicts per task (engine-private). (e.g., '.orchestrator/merged_verdicts')"
+        },
+        "halts": {
+          "type": "string",
+          "description": "Monitor halt signal flags or messages (engine-private). (e.g., '.orchestrator/halts')"
+        },
+        "approvals_source": {
+          "type": "string",
+          "default": "outbox",
+          "description": "Where verdict files are written and read by watcher. 'outbox' = dispatch/<agent>/outbox. (e.g., 'outbox')"
+        },
+        "halt_mode": {
+          "type": "string",
+          "enum": ["flag_file", "inbox_inject"],
+          "default": "flag_file",
+          "description": "How monitor halts coder: 'flag_file' (synchronous flag file, default), 'inbox_inject' (message in inbox, async)"
+        },
+        "playwright_tests": {
+          "type": "string",
+          "description": "Path to Playwright E2E test files run after coder delivers. (e.g., 'tests/e2e')"
+        },
+        "runtime_flags": {
+          "type": "string",
+          "description": "Hook toggle flags directory (engine-private). (e.g., '.orchestrator/runtime_flags')"
+        },
+        "logs": {
+          "type": "string",
+          "description": "Unified logging output directory (engine-private). (e.g., '.orchestrator/logs')"
+        }
+      }
+    },
+    "wake": {
+      "type": "object",
+      "description": "Agent wake and liveness configuration",
+      "required": [
+        "mechanism",
+        "first_attempt_seconds",
+        "retry_interval_seconds",
+        "max_retries",
+        "monitor_pulse_seconds",
+        "idle_threshold_seconds",
+        "liveness_check_interval_seconds"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "mechanism": {
+          "type": "string",
+          "enum": ["tmux", "psmux"],
+          "default": "tmux",
+          "description": "Multiplexer backend for agent wake. 'tmux' for Linux/macOS, 'psmux' for Windows PowerShell. Configurable for future backends."
+        },
+        "first_attempt_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Initial wait before first wake attempt (seconds)"
+        },
+        "retry_interval_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Wait between retry attempts (seconds)"
+        },
+        "max_retries": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum number of wake retry attempts"
+        },
+        "monitor_pulse_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Interval at which monitor agent is woken to check coder's live tool-call stream (seconds)"
+        },
+        "idle_threshold_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 120,
+          "description": "Agent is considered idle if no tool use for this duration. Liveness ticker re-wakes idle agents (seconds)"
+        },
+        "liveness_check_interval_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 30,
+          "description": "Interval at which liveness ticker checks for idle agents and re-wakes them (seconds). Runs on separate thread to not block main watcher loop."
+        }
+      }
+    },
+    "session": {
+      "type": "object",
+      "description": "Session-level configuration",
+      "required": [
+        "require_ready_files",
+        "halt_between_batches"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "require_ready_files": {
+          "type": "boolean",
+          "description": "If true, agents must create dispatch/<self>/ready before dispatch begins"
+        },
+        "halt_between_batches": {
+          "type": "boolean",
+          "description": "If true, watcher halts between task batches waiting for manual confirmation"
+        },
+        "session_prefix": {
+          "type": "string",
+          "default": "gate-",
+          "description": "Prefix prepended to agent name when forming tmux/psmux session name (e.g., 'gate-ralph')"
+        },
+        "timezone": {
+          "type": "string",
+          "default": "Asia/Dubai",
+          "description": "IANA timezone for timestamps (e.g., 'Asia/Dubai')"
+        },
+        "monitor_activity_to_dispatch": {
+          "type": "boolean",
+          "default": false,
+          "description": "Legacy activity_logger fallback: if true, ship coder tool calls to monitor via send.py. Superseded by monitor_ingest.py PostToolUse hook."
+        }
+      }
+    },
+    "agents": {
+      "type": "array",
+      "description": "Agent roster. N coders, M monitors, P reviewers — all from config. Engine works with any mix. No hardcoded agent names.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "profile",
+          "executor",
+          "roles"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Agent unique name (e.g., 'ralph', 'monitor', 'architect')"
+          },
+          "profile": {
+            "type": "string",
+            "description": "Agent profile reference (e.g., 'gate-ralph', 'gate-architect'). Resolved from shared_roots.agents_*."
+          },
+          "executor": {
+            "type": "boolean",
+            "description": "If true, agent is a code executor and gets commit-gate, dispatch-gate hooks. If false, reviewer or monitor."
+          },
+          "roles": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": ["coder", "monitor", "playwright", "reviewer"]
+            },
+            "description": "Agent roles. 'coder' = dispatch-gate + monitor ingest. 'monitor' + 'playwright' = live monitoring + E2E testing. 'reviewer' = verdict writer. One agent can have multiple roles."
+          }
+        }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "description": "Message routing rules for dispatch contract",
+      "required": [
+        "cc_all",
+        "review_requests_to"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "cc_all": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Agents to receive copies of all outbox messages (e.g., ['monitor'])"
+        },
+        "review_requests_to": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Agents to receive review requests when coder delivers. Length determines N reviewers. (e.g., ['architect', 'critic'])"
+        },
+        "on_batch_complete": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Agents notified when a task batch completes (e.g., ['playwright'])"
+        },
+        "on_test_failure": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Agents notified on test failure (e.g., ['ralph'])"
+        },
+        "on_test_passed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Agents notified on test pass (e.g., ['ralph'])"
+        },
+        "on_stop": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Agents notified on agent stop event (e.g., ['architect', 'critic', 'monitor'])"
+        },
+        "escalation_target": {
+          "type": "string",
+          "default": "allan",
+          "description": "Agent name for escalation routing (dispatch/X/inbox/)"
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "description": "Commit gate and approval configuration",
+      "required": [
+        "require_approvals_from",
+        "consensus_rule",
+        "max_rework_rounds",
+        "protected_branches"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "require_approvals_from": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "Agents whose approval is required for commit. Should match review_requests_to. (e.g., ['architect', 'critic'])"
+        },
+        "consensus_rule": {
+          "type": "string",
+          "enum": ["unanimous", "majority", "any_pass"],
+          "default": "unanimous",
+          "description": "How to merge reviewer verdicts. 'unanimous' = all required must approve. 'majority' = >50%. 'any_pass' = at least one (not recommended)."
+        },
+        "max_rework_rounds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 3,
+          "description": "Maximum number of rework cycles before escalation to Allan"
+        },
+        "protected_branches": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Branches where commit-gate fires. Commits to other branches are ungated. (e.g., ['dev', 'main'])"
+        }
+      }
+    },
+    "fan_in": {
+      "type": "object",
+      "description": "Fan-in (verdict merge) configuration",
+      "required": ["review"],
+      "additionalProperties": false,
+      "properties": {
+        "review": {
+          "type": "object",
+          "description": "Review verdict fan-in settings",
+          "required": [
+            "required",
+            "timeout_seconds",
+            "on_timeout"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "required": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              },
+              "description": "Agents whose verdict is required before consensus. (e.g., ['architect', 'critic'])"
+            },
+            "timeout_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Maximum wait for all required verdicts before timeout escalation (seconds)"
+            },
+            "on_timeout": {
+              "type": "string",
+              "enum": ["escalate_allan", "escalate_monitor", "reject"],
+              "description": "Action on verdict timeout. 'escalate_allan' drops escalation message in dispatch/allan/inbox/."
+            }
+          }
+        }
+      }
+    }
+  }
+}

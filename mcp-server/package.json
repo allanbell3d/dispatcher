@@ -1,0 +1,8 @@
+{
+  "name": "dispatch-orchestrator-mcp",
+  "version": "3.0.0",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "_validator_note": "The $ref to task_schema.json is a relative URI. Validators must co-locate both schema files in the same directory and resolve the reference manually (no jsonschema library — stdlib only per spec rule #10).",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://orchestrator.local/schemas/plan_schema.json",
+  "title": "Orchestrator Plan",
+  "description": "Round 1 plan envelope. Source: MASTER_SPECS_MERGED.md section 'Components' row 16 — 'JSON schema for task files that Allan (or a future planner agent) must produce'. Reviewers enforce per-task proof rule at execution time.",
+  "type": "object",
+  "required": ["plan_id", "tasks"],
+  "properties": {
+    "plan_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique plan identifier."
+    },
+    "title": {
+      "type": "string",
+      "description": "Optional plan title."
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional prose description. Engine ignores; reviewers and Allan use it."
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Ordered list of tasks. Coder NEVER sees this list — dispatcher places one task at a time.",
+      "items": { "$ref": "task_schema.json" }
+    }
+  },
+  "additionalProperties": false
+}

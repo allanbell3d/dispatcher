@@ -1,0 +1,18 @@
+# Coordinated agent protocol
+
+These profiles are for the `gate-*` agents only.
+
+Load order:
+
+1. shared coordinated profile
+2. shared coordinated role prompt
+3. project-local `memories/gate-<name>/...`
+4. current file from `dispatch/<role>/active/`
+
+Rules:
+
+- do not browse the full plan unless Allan explicitly dispatches it
+- do not self-serve tasks from `.orchestrator/tasks/`
+- do not read another agent's memory folder by default
+- do not treat `.orchestrator/` as a mailbox
+- all live traffic goes through `dispatch/<role>/...`

@@ -1,0 +1,128 @@
+{
+  "project": "orchestration-poc",
+  "stories": [
+    {
+      "id": "US-001",
+      "title": "MCP channel server delivers notifications to idle agents",
+      "passes": false,
+      "acceptanceCriteria": [
+        "Server emits notifications/claude/channel when mailbox file changes",
+        "Agent session receives <channel> tag and wakes from Sleep",
+        "Message content matches what was written to mailbox",
+        "Mailbox cleared after delivery"
+      ]
+    },
+    {
+      "id": "US-002",
+      "title": "Commit gate blocks without dual approval",
+      "passes": true,
+      "acceptanceCriteria": [
+        "git commit denied when no approval files exist",
+        "git commit denied when only one approver approved",
+        "git commit allowed when both architect + critic approval files exist",
+        "Approval files archived after successful commit"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Task dispatcher advances bugs mechanically",
+      "passes": true,
+      "acceptanceCriteria": [
+        "After successful commit, current task marked done in tasks.json",
+        "Next pending task injected as additionalContext",
+        "preventContinuation fires at batch boundary",
+        "All-done message when no tasks remain"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "send.py routes messages and CC's monitor",
+      "passes": true,
+      "acceptanceCriteria": [
+        "Message delivered to recipient mailbox",
+        "CC copy delivered to monitor mailbox",
+        "Dubai timezone in timestamps",
+        "Invalid recipient rejected with error"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "MCP send tool routes between agents",
+      "passes": true,
+      "acceptanceCriteria": [
+        "send(to, message) writes to correct mailbox",
+        "Monitor receives CC automatically",
+        "write_approval creates correct approval file",
+        "read_diff returns staged diff content"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Architect reviews diffs against spec",
+      "passes": false,
+      "acceptanceCriteria": [
+        "Architect loads specs at session start",
+        "Receives review request via channel notification",
+        "Reads diff via read_diff tool",
+        "Approves or rejects with specific feedback",
+        "Writes approval file on approve"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Critic reviews for KISS and scope",
+      "passes": false,
+      "acceptanceCriteria": [
+        "Critic loads KISS report at session start",
+        "Receives review request via channel notification",
+        "Checks minimal fix, scope boundaries, over-engineering",
+        "Writes approval file on approve"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Ralph follows fix-review-commit protocol",
+      "passes": false,
+      "acceptanceCriteria": [
+        "Ralph reads current task from dispatch injection",
+        "Fixes bug with minimal change",
+        "Writes diff, sends review to both reviewers",
+        "Waits for approval before committing",
+        "Commit blocked by hook if approval missing"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "Monitor observes all activity via CC",
+      "passes": false,
+      "acceptanceCriteria": [
+        "Monitor receives CC of every inter-agent message",
+        "Can detect protocol violations (wrong files, missing diffs)",
+        "Can send intervention messages to offending agent",
+        "Can escalate to allan mailbox"
+      ]
+    },
+    {
+      "id": "US-010",
+      "title": "Playwright tests fixed bugs at batch boundary",
+      "passes": false,
+      "acceptanceCriteria": [
+        "Activated when dispatch fires preventContinuation",
+        "Tests bugs via Telegram Web using Playwright MCP",
+        "Reports pass/fail per bug to ralph and monitor",
+        "Failed bugs re-entered into tasks.json"
+      ]
+    },
+    {
+      "id": "US-011",
+      "title": "Config drives agent count, roles, and routing",
+      "passes": true,
+      "acceptanceCriteria": [
+        "config.json defines agents array with name, role, model",
+        "gate.require_approvals_from controls commit gate",
+        "routing defines message flow",
+        "Adding/removing agents requires only config change"
+      ]
+    }
+  ]
+}

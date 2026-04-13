@@ -1,0 +1,14 @@
+{
+  "name": "default",
+  "description": "Standard orchestrator sprint profile -- all hooks enabled",
+  "hooks": {
+    "dispatch_gate": true,
+    "check_gate": true,
+    "inbox_access_guard": true,
+    "monitor_ingest": true,
+    "activity_logger": true,
+    "dispatch_next_bug": true,
+    "on_file_message": true,
+    "stop_notify": true
+  }
+}

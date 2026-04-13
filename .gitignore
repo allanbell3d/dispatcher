@@ -1,0 +1,63 @@
+# ── Credentials & secrets ─────────────────────
+service/config.json
+notification_credentials.md
+rev_02/notification_credentials.md
+dubizzle_session.json
+service/dubizzle_session.json
+notification_credentials.md
+secrets/
+.venv/
+venv/
+env/
+.venv
+.env
+
+# ── Python ────────────────────────────────────
+mcp-server/node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# ── Temp & swap files ─────────────────────────
+.omc/
+*.tmp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE / editor ──────────────────────────────
+.vscode/
+.idea/
+*.code-workspace
+
+# ── Git worktrees ─────────────────────────────
+.worktrees/
+
+
+# ── Docs ──────────────────────────────────────
+docs_dev/
+
+# ── Playwright ────────────────────────────────
+playwright-report/
+test-results/
+playwright/
+
+# ── Media ─────────────────────────────────────
+
+media/
+pictures/
+*.zip
+*.rar
+*.jpeg
+*.jpg
+*.png
+*.webp
+
+# ── Word temp files ───────────────────────────
+~$*.docx

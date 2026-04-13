@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://orchestrator.local/schemas/task_schema.json",
+  "title": "Orchestrator Task",
+  "description": "Round 1 task envelope. Source: MASTER_SPECS_MERGED.md section 'Coder workflow' step 2 — 'task_id, title, acceptance_criteria, reference_paths. No plan. No other tasks.'",
+  "type": "object",
+  "required": ["task_id", "title", "acceptance_criteria", "reference_paths"],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique task identifier. Used in commit tags [task:<id>], diff filenames, verdict filenames."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable task name."
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Verifiable success criteria. Each string must be concrete enough for a reviewer to check."
+    },
+    "reference_paths": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Files/paths the coder may need to read. Does NOT include the plan."
+    },
+    "deps": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Task IDs that must complete before this task is dispatched. Basic rich-task support (Remarks.md F9 scope)."
+    },
+    "assignee": {
+      "type": "string",
+      "description": "Optional: force this task to a specific agent. If omitted, router picks from available executors."
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,8 @@
+{
+  "sprint_active": false,
+  "auto_approve_mode": "default",
+  "hooks_config": {
+    "sprint_active": false,
+    "auto_approve_mode": "default"
+  }
+}

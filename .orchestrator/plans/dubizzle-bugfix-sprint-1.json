@@ -1,0 +1,506 @@
+{
+  "plan_id": "dubizzle-bugfix-full",
+  "title": "Dubizzle Bot — Full Bug Fix Sprint (50 bugs)",
+  "description": "All 50 bugs from QA report. Ordered by batch priority: critical (B1-B9), high (B10-B21), medium (B22-B39), low (B40-B50). Sequential execution within each batch.",
+  "tasks": [
+    {
+      "task_id": "B1",
+      "title": "Fresh form fills nothing — wait for DOM after category",
+      "acceptance_criteria": [
+        "After category selection, bot waits for first form field to render",
+        "Fields are filled with correct values from ad file",
+        "Log shows individual field fill confirmations"
+      ],
+      "reference_paths": ["service/dubizzle.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B2",
+      "title": "No file upload input on fresh form",
+      "acceptance_criteria": [
+        "File upload input found after form fields are filled",
+        "Photos uploaded successfully on fresh form"
+      ],
+      "reference_paths": ["service/dubizzle.py"],
+      "deps": ["B1"]
+    },
+    {
+      "task_id": "B3",
+      "title": "Description selector grabs title textarea",
+      "acceptance_criteria": [
+        "Description goes into the description field, not the title field",
+        "Title field contains only the title text",
+        "Verified via JS evaluate on Dubizzle form"
+      ],
+      "reference_paths": ["service/dubizzle.py"],
+      "deps": ["B1"]
+    },
+    {
+      "task_id": "B4",
+      "title": "Title doubled on draft resume — Playwright fill appends",
+      "acceptance_criteria": [
+        "Title field shows single copy of title text on draft resume",
+        "No duplication or truncation"
+      ],
+      "reference_paths": ["service/dubizzle.py"],
+      "deps": ["B3"]
+    },
+    {
+      "task_id": "B5",
+      "title": "No price set notification creates phantom waiter",
+      "acceptance_criteria": [
+        "'No price set' notification sent with wait=False",
+        "Next message after notification is processed as new command, not consumed as reply"
+      ],
+      "reference_paths": ["service/dubizzle.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B6",
+      "title": "PermissionError crashes error handler thread",
+      "acceptance_criteria": [
+        "Queue file saves succeed even when briefly locked by another process",
+        "No PermissionError tracebacks in logs",
+        "Error handler thread doesn't crash"
+      ],
+      "reference_paths": ["service/queue_manager.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B7",
+      "title": "edit_ad_copy blocks main poll thread",
+      "acceptance_criteria": [
+        "Bot remains responsive to messages during edit_ad_copy execution",
+        "Edit result still applied correctly to ad file"
+      ],
+      "reference_paths": ["service/handlers.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B8",
+      "title": "Price validation after browser launch — wasted work",
+      "acceptance_criteria": [
+        "Price check happens before browser launch and dated copy creation",
+        "No wasted AI call or file creation for rooms with [SET PRICE]"
+      ],
+      "reference_paths": ["service/handlers.py", "service/dubizzle.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B9",
+      "title": "Batch cancel only cancels first room",
+      "acceptance_criteria": [
+        "Cancel during batch posting stops ALL remaining rooms",
+        "No browser launches for rooms after cancel"
+      ],
+      "reference_paths": ["service/dubizzle.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B10",
+      "title": "change_price modifies live files directly",
+      "acceptance_criteria": [
+        "change_price creates a dated copy before modifying",
+        "Original file preserved as backup"
+      ],
+      "reference_paths": ["service/handlers.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B11",
+      "title": "edit_ad doesn't protect live files",
+      "acceptance_criteria": [
+        "Edit creates dated copy before applying AI changes regardless of file type",
+        "Original file preserved"
+      ],
+      "reference_paths": ["service/handlers.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B12",
+      "title": "AI edit adds Room/Villa metadata",
+      "acceptance_criteria": [
+        "AI edit output contains only fields present in original ad",
+        "No **Room:** or **Villa:** lines added"
+      ],
+      "reference_paths": ["service/prompts/edit_ad_copy.md"],
+      "deps": []
+    },
+    {
+      "task_id": "B13",
+      "title": "Room 02 template format permanently corrupted",
+      "acceptance_criteria": [
+        "Room 02 template starts with # heading",
+        "No **Room:** or **Villa:** metadata lines",
+        "Format matches other room templates"
+      ],
+      "reference_paths": ["adverts/2026-04-01_room-02_ensuite-balcony-villa60.md"],
+      "deps": ["B12"]
+    },
+    {
+      "task_id": "B14",
+      "title": "Dated copies inherit corruption from source",
+      "acceptance_criteria": [
+        "create_dated_copy warns when source format looks wrong",
+        "Does not silently propagate corrupted format"
+      ],
+      "reference_paths": ["service/ad_manager.py"],
+      "deps": ["B13"]
+    },
+    {
+      "task_id": "B15",
+      "title": "Timezone bug — dates use UTC not Dubai",
+      "acceptance_criteria": [
+        "Dated copies use Dubai timezone (UTC+4)",
+        "Files created at 11pm Dubai time are dated today, not tomorrow"
+      ],
+      "reference_paths": ["service/ad_manager.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B16",
+      "title": "Typos propagated from template to copies",
+      "acceptance_criteria": [
+        "AI variation fixes obvious typos",
+        "Dated copies don't carry source typos"
+      ],
+      "reference_paths": ["service/prompts/vary_ad_template.md"],
+      "deps": []
+    },
+    {
+      "task_id": "B17",
+      "title": "Body price not updated by change_price",
+      "acceptance_criteria": [
+        "Both header price and body price text updated",
+        "Old price no longer appears anywhere in the file"
+      ],
+      "reference_paths": ["service/handlers.py"],
+      "deps": ["B10"]
+    },
+    {
+      "task_id": "B18",
+      "title": "No yyyy-mm-dd templates for 5 rooms",
+      "acceptance_criteria": [
+        "yyyy-mm-dd_room-XX template exists for rooms 02, 05, 11, 17, 20",
+        "find_ad_file returns type='template' for these rooms"
+      ],
+      "reference_paths": ["adverts/"],
+      "deps": []
+    },
+    {
+      "task_id": "B19",
+      "title": "21 of 29 ad files have [SET PRICE]",
+      "acceptance_criteria": [
+        "Status report shows which rooms have [SET PRICE]",
+        "Posting blocked with helpful message for rooms without price"
+      ],
+      "reference_paths": ["service/handlers.py"],
+      "deps": ["B8"]
+    },
+    {
+      "task_id": "B20",
+      "title": "Discount/promo text lost in AI edits",
+      "acceptance_criteria": [
+        "AI edit preserves discount/promo text verbatim",
+        "Strikethrough prices and urgency phrases intact"
+      ],
+      "reference_paths": ["service/prompts/edit_ad_copy.md"],
+      "deps": ["B12"]
+    },
+    {
+      "task_id": "B21",
+      "title": "yes after draft creates duplicate",
+      "acceptance_criteria": [
+        "Saying 'yes' after draft creation does not create duplicate",
+        "Second 'yes' within 60s is treated as acknowledgment, not new command"
+      ],
+      "reference_paths": ["service/handlers.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B22",
+      "title": "Price questions misclassified as status",
+      "acceptance_criteria": [
+        "'how much is room 14' classifies as preview, not status",
+        "Bot shows the ad text including price"
+      ],
+      "reference_paths": ["service/prompts/intent_classifier.md"],
+      "deps": []
+    },
+    {
+      "task_id": "B23",
+      "title": "Photo count query fails",
+      "acceptance_criteria": [
+        "Bot can answer 'how many photos' questions",
+        "Photo count from Selected/ folder included in context"
+      ],
+      "reference_paths": ["service/handlers.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B24",
+      "title": "Feature queries unknown",
+      "acceptance_criteria": [
+        "'which rooms are ensuite' gets a correct answer",
+        "Room metadata from rooms.json included in LLM context"
+      ],
+      "reference_paths": ["service/prompts/intent_classifier.md"],
+      "deps": []
+    },
+    {
+      "task_id": "B25",
+      "title": "Comparison queries unknown",
+      "acceptance_criteria": [
+        "'compare rooms 01 and 02' returns useful comparison",
+        "Both rooms' ad data included in LLM context"
+      ],
+      "reference_paths": ["service/prompts/intent_classifier.md"],
+      "deps": ["B24"]
+    },
+    {
+      "task_id": "B26",
+      "title": "Villa-scoped queries unknown",
+      "acceptance_criteria": [
+        "'show me villa 62 rooms' returns list of rooms in villa 62",
+        "Room data filtered by villa number"
+      ],
+      "reference_paths": ["service/prompts/intent_classifier.md"],
+      "deps": ["B24"]
+    },
+    {
+      "task_id": "B27",
+      "title": "Room number validation missing",
+      "acceptance_criteria": [
+        "Invalid room numbers rejected with helpful message",
+        "Valid range determined from rooms.json, not hardcoded"
+      ],
+      "reference_paths": ["service/handlers.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B28",
+      "title": "Bare post infers room from context — risky",
+      "acceptance_criteria": [
+        "'post' without room number asks which room to post",
+        "No silent room inference for posting commands"
+      ],
+      "reference_paths": ["service/prompts/intent_classifier.md"],
+      "deps": []
+    },
+    {
+      "task_id": "B29",
+      "title": "No undo/revert functionality",
+      "acceptance_criteria": [
+        "'undo' gets a helpful response about dated copies",
+        "Not classified as unknown or sent to AI edit"
+      ],
+      "reference_paths": ["service/handlers.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B30",
+      "title": "No delete draft functionality",
+      "acceptance_criteria": [
+        "'delete draft' gets a helpful response",
+        "Not classified as unknown"
+      ],
+      "reference_paths": ["service/handlers.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B31",
+      "title": "Photo count not in LLM context",
+      "acceptance_criteria": [
+        "LLM context includes photo count per room",
+        "Bot can answer photo-related questions"
+      ],
+      "reference_paths": ["service/handlers.py"],
+      "deps": ["B23"]
+    },
+    {
+      "task_id": "B32",
+      "title": "_gather_context only includes named rooms",
+      "acceptance_criteria": [
+        "Queries about all rooms get data about all rooms",
+        "'what rooms have no price set' finds all 21 rooms"
+      ],
+      "reference_paths": ["service/handlers.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B33",
+      "title": "edit room with no instruction sends vague prompt",
+      "acceptance_criteria": [
+        "'edit room 02' with no instruction asks for clarification",
+        "Does not call AI with empty/vague instruction"
+      ],
+      "reference_paths": ["service/handlers.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B34",
+      "title": "change price inherits stale room from context",
+      "acceptance_criteria": [
+        "'change price' without room asks which room",
+        "'change price' without amount asks what price"
+      ],
+      "reference_paths": ["service/prompts/intent_classifier.md"],
+      "deps": []
+    },
+    {
+      "task_id": "B35",
+      "title": "show all prices needs escalation to Sonnet",
+      "acceptance_criteria": [
+        "'show me all the prices' classified without escalation",
+        "Response includes prices for all rooms"
+      ],
+      "reference_paths": ["service/ai_provider.py", "service/prompts/intent_classifier.md"],
+      "deps": ["B32"]
+    },
+    {
+      "task_id": "B36",
+      "title": "Messages eaten during concurrent posting",
+      "acceptance_criteria": [
+        "Non-checkpoint messages during posting are queued, not consumed",
+        "Queued messages processed after posting flow ends"
+      ],
+      "reference_paths": ["service/bot.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B37",
+      "title": "asyncio Task destroyed but pending errors on cancel",
+      "acceptance_criteria": [
+        "No 'Task destroyed but pending' errors on batch cancel",
+        "All async tasks properly cleaned up"
+      ],
+      "reference_paths": ["service/dubizzle.py"],
+      "deps": ["B9"]
+    },
+    {
+      "task_id": "B38",
+      "title": "Queue allows re-queuing rooms in posting status",
+      "acceptance_criteria": [
+        "Cannot re-queue room already in 'posting' status",
+        "Clear error message explaining current status"
+      ],
+      "reference_paths": ["service/queue_manager.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B39",
+      "title": "edit room with no instruction — duplicate of B33",
+      "acceptance_criteria": [
+        "Same as B33"
+      ],
+      "reference_paths": ["service/handlers.py"],
+      "deps": ["B33"]
+    },
+    {
+      "task_id": "B40",
+      "title": "Price formatting inconsistent — no commas",
+      "acceptance_criteria": [
+        "Prices always written with comma separation (5,200 not 5200)",
+        "Consistent across all operations"
+      ],
+      "reference_paths": ["service/handlers.py"],
+      "deps": ["B17"]
+    },
+    {
+      "task_id": "B41",
+      "title": "AI variation exceeds 10-20% promise",
+      "acceptance_criteria": [
+        "AI variation changes at most 2-3 words in title",
+        "Body structure preserved, only intro paragraph varies"
+      ],
+      "reference_paths": ["service/prompts/vary_ad_template.md"],
+      "deps": []
+    },
+    {
+      "task_id": "B42",
+      "title": "Room 17 title style inconsistent",
+      "acceptance_criteria": [
+        "Room 17 title matches formal style of other room templates"
+      ],
+      "reference_paths": ["adverts/"],
+      "deps": []
+    },
+    {
+      "task_id": "B43",
+      "title": "Room 20 title has discount price suffix",
+      "acceptance_criteria": [
+        "Room 20 title clean, no 'discount price!' suffix"
+      ],
+      "reference_paths": ["adverts/"],
+      "deps": []
+    },
+    {
+      "task_id": "B44",
+      "title": "Room 05 template typo Beatifull",
+      "acceptance_criteria": [
+        "No spelling errors in room 05 template"
+      ],
+      "reference_paths": ["adverts/"],
+      "deps": ["B16"]
+    },
+    {
+      "task_id": "B45",
+      "title": "Posting aborted raw error shown to user",
+      "acceptance_criteria": [
+        "User-friendly error message with guidance",
+        "Mentions which room and how to fix"
+      ],
+      "reference_paths": ["service/dubizzle.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B46",
+      "title": "Draft detection fails on untitled drafts",
+      "acceptance_criteria": [
+        "Untitled drafts detected",
+        "Bot asks about existing draft before creating new form"
+      ],
+      "reference_paths": ["service/dubizzle.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B47",
+      "title": "Room 14 dated copy created with SET PRICE",
+      "acceptance_criteria": [
+        "create_dated_copy warns when price is [SET PRICE]",
+        "Dated copy not created silently with placeholder price"
+      ],
+      "reference_paths": ["service/ad_manager.py"],
+      "deps": ["B19"]
+    },
+    {
+      "task_id": "B48",
+      "title": "Queue entries stuck in stale status",
+      "acceptance_criteria": [
+        "Stale 'posting' entries auto-marked failed after timeout",
+        "Status report flags stale entries"
+      ],
+      "reference_paths": ["service/queue_manager.py"],
+      "deps": []
+    },
+    {
+      "task_id": "B49",
+      "title": "All rooms query finds only 1 of 21",
+      "acceptance_criteria": [
+        "Same as B32"
+      ],
+      "reference_paths": ["service/handlers.py"],
+      "deps": ["B32"]
+    },
+    {
+      "task_id": "B50",
+      "title": "Multiple checkpoint replies — first dropped",
+      "acceptance_criteria": [
+        "Multiple rapid messages during checkpoint are queued",
+        "First message not lost"
+      ],
+      "reference_paths": ["service/bot.py"],
+      "deps": ["B36"]
+    }
+  ]
+}

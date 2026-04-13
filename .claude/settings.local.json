@@ -1,0 +1,94 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(W:\\Claude_Library\\**)",
+      "Write(W:\\Claude_Library\\**)",
+      "Read(D:\\IA\\Claude-Wisper-TTS-Service\\**)",
+      "Write(D:\\IA\\Claude-Wisper-TTS-Service\\**)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_navigate_back",
+      "mcp__plugin_playwright_playwright__browser_press_key",
+      "mcp__plugin_playwright_playwright__browser_type",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_fill_form",
+      "mcp__plugin_playwright_playwright__browser_select_option",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_tabs",
+      "mcp__plugin_playwright_playwright__browser_hover",
+      "mcp__plugin_playwright_playwright__browser_drag",
+      "mcp__plugin_playwright_playwright__browser_file_upload",
+      "mcp__plugin_playwright_playwright__browser_handle_dialog",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "mcp__plugin_playwright_playwright__browser_network_requests",
+      "mcp__plugin_playwright_playwright__browser_resize",
+      "mcp__plugin_playwright_playwright__browser_run_code",
+      "mcp__plugin_playwright_playwright__browser_close",
+      "mcp__plugin_playwright_playwright__browser_install",
+      "mcp__codex__codex",
+      "mcp__codex__codex-reply",
+      "Read(//d/IA/mma-business-assistant/**)",
+      "Read(//d/IA/Claude-Wisper-TTS-Service/inbox/**)",
+      "Read(//d/IA/Claude-Wisper-TTS-Service/inbox/processed/**)",
+      "Read(//d/IA/Claude-Wisper-TTS-Service/**)",
+      "Read(//c/Users/Allan/.claude/pressure/**)",
+      "WebFetch(domain:oraios.github.io)",
+      "mcp__plugin_serena_serena__list_dir",
+      "mcp__plugin_serena_serena__write_memory",
+      "Bash(git:*)"
+    ],
+    "deny": []
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "sequential-thinking",
+    "serena",
+    "beads"
+  ],
+  "disabledMcpjsonServers": [
+    "codex"
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:\\Program Files\\PowerShell\\7\\pwsh.exe\" -ExecutionPolicy Bypass -NoProfile -File \"C:\\Users\\Allan\\.claude\\hooks\\pre-tool-guard.ps1\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:\\Program Files\\PowerShell\\7\\pwsh.exe\" -ExecutionPolicy Bypass -NoProfile -File \"C:\\Users\\Allan\\.claude\\hooks\\post-tool-handler.ps1\""
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:\\Program Files\\PowerShell\\7\\pwsh.exe\" -ExecutionPolicy Bypass -NoProfile -File \"C:\\Users\\Allan\\.claude\\hooks\\auto-approve.ps1\""
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {},
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "seccomp": {
+      "bpfPath": "C:\\Users\\Allan\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\sandbox-runtime\\vendor\\seccomp\\x64\\unix-block.bpf",
+      "applyPath": "C:\\Users\\Allan\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\sandbox-runtime\\vendor\\seccomp\\x64\\apply-seccomp"
+    }
+  }
+}

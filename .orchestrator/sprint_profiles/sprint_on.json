@@ -1,0 +1,252 @@
+{
+  "_comment": "Sprint ON — autonomous mode. Launcher patches these roles into live roles.json.",
+  "hooks_config": {
+    "sprint_active": true,
+    "auto_approve_mode": "sprint"
+  },
+  "roles": {
+    "gate-ralph": {
+      "memory_folders": ["gate-ralph"],
+      "dispatch_folder": "gate-ralph",
+      "write_unrestricted": false,
+      "read_all_memory": false,
+      "protected_from": [".claude/"],
+      "git_ops": false,
+      "d63_skip": false,
+      "version_bump": false,
+      "write_docs": false,
+      "write_orchestrator": false,
+      "write_dispatch_active": false,
+      "opus_only_files": false,
+      "opus_injection": false,
+      "required_reading_gate": false,
+      "context_inject": { "enabled": false },
+      "bash_deny_patterns": [],
+      "bash_deny_code_files": false,
+      "git": {
+        "commit": true,
+        "push": false,
+        "merge": false
+      },
+      "auto_approve": {
+        "Read": "allow",
+        "Write": "allow",
+        "Edit": "allow",
+        "Glob": "allow",
+        "Grep": "allow",
+        "Bash": "allow",
+        "WebFetch": "allow",
+        "WebSearch": "allow",
+        "Skill": "allow",
+        "Agent": "allow",
+        "mcp": "allow"
+      },
+      "safety_overrides": {},
+      "mode": "sprint",
+      "override": "auto-approve",
+      "auto_approve_sprint": {
+        "Read": "allow",
+        "Write": "allow",
+        "Edit": "allow",
+        "Glob": "allow",
+        "Grep": "allow",
+        "Bash": "allow",
+        "WebFetch": "allow",
+        "WebSearch": "allow",
+        "Skill": "allow",
+        "Agent": "allow",
+        "mcp": "allow"
+      },
+      "auto_approve_override": {},
+      "folder_access": [
+        { "path": "E:\\Business\\Real Estate\\Villa number 2 -60-62\\Advert\\", "access": "write" },
+        { "path": "W:\\Claude_Library\\", "access": "write" }
+      ]
+    },
+    "gate-architect": {
+      "memory_folders": ["gate-architect"],
+      "dispatch_folder": "gate-architect",
+      "write_unrestricted": true,
+      "read_all_memory": true,
+      "protected_from": [".claude/"],
+      "git_ops": false,
+      "d63_skip": false,
+      "version_bump": true,
+      "write_docs": true,
+      "write_orchestrator": true,
+      "write_dispatch_active": true,
+      "opus_only_files": true,
+      "opus_injection": false,
+      "required_reading_gate": false,
+      "context_inject": { "enabled": false },
+      "bash_deny_patterns": [],
+      "bash_deny_code_files": false,
+      "git": {
+        "commit": true,
+        "push": true,
+        "merge": true
+      },
+      "auto_approve": {
+        "Read": "allow",
+        "Write": "allow",
+        "Edit": "allow",
+        "Glob": "allow",
+        "Grep": "allow",
+        "Bash": "allow",
+        "WebFetch": "allow",
+        "WebSearch": "allow",
+        "Skill": "allow",
+        "Agent": "allow",
+        "mcp": "allow"
+      },
+      "safety_overrides": {
+        "cd_and_git": "allow",
+        "compound_ssh": "allow",
+        "drop_database": "allow",
+        "force_push_main": "allow",
+        "git_reset_hard": "allow",
+        "hooks_bash_access": "allow",
+        "rm_rf_root": "allow",
+        "settings_bash_access": "allow"
+      },
+      "mode": "sprint",
+      "override": "auto-approve",
+      "auto_approve_sprint": {
+        "Read": "allow",
+        "Write": "allow",
+        "Edit": "allow",
+        "Glob": "allow",
+        "Grep": "allow",
+        "Bash": "allow",
+        "WebFetch": "allow",
+        "WebSearch": "allow",
+        "Skill": "allow",
+        "Agent": "allow",
+        "mcp": "allow"
+      },
+      "auto_approve_override": {},
+      "folder_access": [
+        { "path": "E:\\Business\\Real Estate\\Villa number 2 -60-62\\Advert\\", "access": "write" },
+        { "path": "W:\\Claude_Library\\", "access": "write" },
+        { "path": "E:/Business/Real Estate/Villa number 2 -60-62/Advert/docs/reports/", "access": "write" }
+      ]
+    },
+    "gate-critic": {
+      "memory_folders": ["gate-critic"],
+      "dispatch_folder": "gate-critic",
+      "write_unrestricted": false,
+      "read_all_memory": false,
+      "protected_from": [".claude/"],
+      "git_ops": false,
+      "d63_skip": false,
+      "version_bump": false,
+      "write_docs": false,
+      "write_orchestrator": false,
+      "write_dispatch_active": false,
+      "opus_only_files": false,
+      "opus_injection": false,
+      "required_reading_gate": false,
+      "context_inject": { "enabled": false },
+      "bash_deny_patterns": [],
+      "bash_deny_code_files": false,
+      "git": {
+        "commit": true,
+        "push": false,
+        "merge": false
+      },
+      "auto_approve": {
+        "Read": "allow",
+        "Write": "allow",
+        "Edit": "allow",
+        "Glob": "allow",
+        "Grep": "allow",
+        "Bash": "allow",
+        "WebFetch": "allow",
+        "WebSearch": "allow",
+        "Skill": "allow",
+        "Agent": "allow",
+        "mcp": "allow"
+      },
+      "safety_overrides": {},
+      "mode": "sprint",
+      "override": "auto-approve",
+      "auto_approve_sprint": {
+        "Read": "allow",
+        "Write": "allow",
+        "Edit": "allow",
+        "Glob": "allow",
+        "Grep": "allow",
+        "Bash": "allow",
+        "WebFetch": "allow",
+        "WebSearch": "allow",
+        "Skill": "allow",
+        "Agent": "allow",
+        "mcp": "allow"
+      },
+      "auto_approve_override": {},
+      "folder_access": [
+        { "path": "E:\\Business\\Real Estate\\Villa number 2 -60-62\\Advert\\", "access": "write" },
+        { "path": "W:\\Claude_Library\\", "access": "write" }
+      ]
+    },
+    "gate-monitor": {
+      "memory_folders": ["gate-monitor"],
+      "dispatch_folder": "gate-monitor",
+      "write_unrestricted": false,
+      "read_all_memory": false,
+      "protected_from": [".claude/"],
+      "git_ops": false,
+      "d63_skip": false,
+      "version_bump": false,
+      "write_docs": false,
+      "write_orchestrator": false,
+      "write_dispatch_active": false,
+      "opus_only_files": false,
+      "opus_injection": false,
+      "required_reading_gate": false,
+      "context_inject": { "enabled": false },
+      "bash_deny_patterns": [],
+      "bash_deny_code_files": false,
+      "git": {
+        "commit": true,
+        "push": false,
+        "merge": false
+      },
+      "auto_approve": {
+        "Read": "allow",
+        "Write": "allow",
+        "Edit": "allow",
+        "Glob": "allow",
+        "Grep": "allow",
+        "Bash": "allow",
+        "WebFetch": "allow",
+        "WebSearch": "allow",
+        "Skill": "allow",
+        "Agent": "allow",
+        "mcp": "allow"
+      },
+      "safety_overrides": {},
+      "mode": "sprint",
+      "override": "auto-approve",
+      "auto_approve_sprint": {
+        "Read": "allow",
+        "Write": "allow",
+        "Edit": "allow",
+        "Glob": "allow",
+        "Grep": "allow",
+        "Bash": "allow",
+        "WebFetch": "allow",
+        "WebSearch": "allow",
+        "Skill": "allow",
+        "Agent": "allow",
+        "mcp": "allow"
+      },
+      "auto_approve_override": {},
+      "folder_access": [
+        { "path": "E:\\Business\\Real Estate\\Villa number 2 -60-62\\Advert\\", "access": "write" },
+        { "path": "E:\\Business\\Real Estate\\Villa number 2 -60-62\\Advert\\.worktrees\\", "access": "write" },
+        { "path": "W:\\Claude_Library\\", "access": "write" }
+      ]
+    }
+  }
+}
