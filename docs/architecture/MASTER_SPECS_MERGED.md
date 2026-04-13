@@ -133,7 +133,7 @@ It is an **experiment rig, not a product**. Zero code changes between experiment
 
 Inbox-access-guard blocks Read, Grep, Glob, AND Bash (scans command strings) for protected paths. Pathless Grep/Glob denied for stamped coders. Bash path regex must match BOTH forward slashes and Windows backslashes (`[/\\]`).
 
-**Known gap — write protection:** The guard covers reads only. A coder could `Write` to `dispatch/critic/inbox/fake.md` and inject a fake message. The spec says "Who can write: Owning agent" but this is unenforced. Track for future hardening — not blocking POC.
+**Known gap — write protection:** The guard covers reads only. A coder could `Write` to `dispatch/gate-critic/inbox/fake.md` and inject a fake message. The spec says "Who can write: Owning agent" but this is unenforced. Track for future hardening — not blocking POC.
 
 **Inbox file format contract:** Dispatch inboxes accept both `.md` and `.json` files. `compose_message()` produces `.md` (text with headers). `monitor_ingest.py` produces `.json` (structured summaries). Tasks are JSON (F3: Locked). **Any code scanning inbox/outbox/reports MUST NOT filter by `.md` suffix only** — use `p.is_file()` or negative filter (exclude `.tmp`). The `.md`-only filter was the #1 recurring bug across Wave 2 reviews (dispatch_gate false WAITING, watcher wake-check miss, outbox scan miss).
 
@@ -257,8 +257,8 @@ When the watcher MERGE fan-in reaches consensus, it writes a JSON file to `state
   "verdict": "approved",
   "consensus_rule": "unanimous",
   "verdicts": {
-    "architect": "approved",
-    "critic": "approved"
+    "gate-architect": "approved",
+    "gate-critic": "approved"
   },
   "dissent": [],
   "ts": "2026-04-13T..."
@@ -365,8 +365,8 @@ Event: PreToolUse | PostToolUse
 Matcher: Bash | Write|Edit|MultiEdit | *
 """
 import json, os, sys, pathlib
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / 'lib'))
-from common import hook_input, resolve_path, audit_log
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+from lib.common import hook_input, resolve_path, audit_log
 
 def main():
     data = hook_input()
@@ -459,7 +459,7 @@ PowerShell launcher. Round 1 minimum:
     "dispatch_root": "dispatch",
     "plans": ".orchestrator/plans",
     "tasks": ".orchestrator/tasks",
-    "current_task": ".orchestrator/current_task.json",
+    "current_task": ".orchestrator/tasks/current_task.json",
     "trackers": ".orchestrator/trackers.json",
     "diffs": ".orchestrator/diffs",
     "logs": ".orchestrator/logs",
@@ -484,29 +484,29 @@ PowerShell launcher. Round 1 minimum:
     "halt_between_batches": true
   },
   "agents": [
-    { "name": "ralph", "profile": "gate-ralph", "executor": true, "roles": ["coder"] },
-    { "name": "monitor", "profile": "gate-monitor", "executor": false, "roles": ["monitor", "playwright"] },
-    { "name": "architect", "profile": "gate-architect", "executor": false, "roles": ["reviewer"] },
-    { "name": "critic", "profile": "gate-critic", "executor": false, "roles": ["reviewer"] }
+    { "name": "gate-ralph", "profile": "gate-ralph", "executor": true, "roles": ["coder"] },
+    { "name": "gate-monitor", "profile": "gate-monitor", "executor": false, "roles": ["monitor", "playwright"] },
+    { "name": "gate-architect", "profile": "gate-architect", "executor": false, "roles": ["reviewer"] },
+    { "name": "gate-critic", "profile": "gate-critic", "executor": false, "roles": ["reviewer"] }
   ],
   "routing": {
-    "cc_all": ["monitor"],
-    "review_requests_to": ["architect", "critic"],
+    "cc_all": ["gate-monitor"],
+    "review_requests_to": ["gate-architect", "gate-critic"],
     "escalation_target": "allan",
-    "on_batch_complete": ["playwright"],
-    "on_test_failure": ["ralph"],
-    "on_test_passed": ["ralph"],
-    "on_stop": ["architect", "critic", "monitor"]
+    "on_batch_complete": ["gate-playwright"],
+    "on_test_failure": ["gate-ralph"],
+    "on_test_passed": ["gate-ralph"],
+    "on_stop": ["gate-architect", "gate-critic", "gate-monitor"]
   },
   "gate": {
-    "require_approvals_from": ["architect", "critic"],
+    "require_approvals_from": ["gate-architect", "gate-critic"],
     "consensus_rule": "unanimous",
     "max_rework_rounds": 3,
     "protected_branches": ["dev", "main"]
   },
   "fan_in": {
     "review": {
-      "required": ["architect", "critic"],
+      "required": ["gate-architect", "gate-critic"],
       "timeout_seconds": 1200,
       "on_timeout": "escalate_allan"
     }
