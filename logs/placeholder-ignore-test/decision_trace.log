@@ -1,0 +1,9 @@
+{"ts": "2026-04-14T03:20:46.427567+04:00", "hook": "dispatch_gate", "agent": "gate-ralph", "decision": "allow", "elapsed_ms": 26.27, "state": "WORKING", "tool": "Write", "inbox_depth": 1}
+{"ts": "2026-04-14T03:20:46.863280+04:00", "hook": "liveness", "agent": "gate-ralph", "decision": "skip", "elapsed_ms": 0, "reason": "no last_tool_use file"}
+{"ts": "2026-04-14T03:20:46.865431+04:00", "hook": "liveness", "agent": "gate-architect", "decision": "skip", "elapsed_ms": 3, "reason": "no last_tool_use file"}
+{"ts": "2026-04-14T03:21:09.455933+04:00", "hook": "dispatch_gate", "agent": "gate-ralph", "decision": "deny", "elapsed_ms": 18.51, "state": "WAITING", "tool": "Write"}
+{"ts": "2026-04-14T03:21:27.944437+04:00", "hook": "dispatch_gate", "agent": "gate-ralph", "decision": "deny", "elapsed_ms": 19.956, "state": "WAITING", "tool": "Write"}
+{"ts": "2026-04-14T03:21:36.023601+04:00", "hook": "dispatch_gate", "agent": "gate-ralph", "decision": "deny", "elapsed_ms": 18.904, "state": "WAITING", "tool": "Write"}
+{"ts": "2026-04-14T03:22:44.520450+04:00", "hook": "dispatch_gate", "agent": "gate-ralph", "decision": "deny", "elapsed_ms": 20.417, "state": "WAITING", "tool": "Write"}
+{"ts": "2026-04-14T03:22:44.902670+04:00", "hook": "liveness", "agent": "gate-ralph", "decision": "skip", "elapsed_ms": 0, "reason": "no last_tool_use file"}
+{"ts": "2026-04-14T03:22:44.904158+04:00", "hook": "liveness", "agent": "gate-architect", "decision": "skip", "elapsed_ms": 2, "reason": "no last_tool_use file"}

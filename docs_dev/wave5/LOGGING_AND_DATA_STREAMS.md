@@ -1,49 +1,25 @@
 # Logging And Data Streams
 
-Wave 5 depends on a few clear streams. If you know which stream carries which kind of truth, debugging gets much easier.
+## Logs
 
-## Primary Streams
+- `.orchestrator/logs/decision_trace.log`
+  Hook decisions and timing. This is the most reliable low-level hook trace.
+- `.orchestrator/logs/watcher.log`
+  Watcher lifecycle and routing events. It is not a general per-tool activity stream.
+- `.orchestrator/audit.log`
+  Event-driven audit records when emitted by runtime helpers. Do not expect every tool call to appear here.
+- `.orchestrator/logs/activity_<agent>.log`
+  Per-agent activity summaries when `activity_logger.py` runs for a stamped agent.
 
-| Stream | Path | What It Means | Who Writes |
-|---|---|---|---|
-| Decision trace | `.orchestrator/logs/decision_trace.log` | Hook decisions, allow/deny/skip, and timing | `trace_hook()` |
-| Audit log | `.orchestrator/audit.log` | Durable operator and watcher events | `audit_log()` |
-| Watcher log | `.orchestrator/logs/watcher.log` | Delivery, wake, fan-in, and error behavior | `scripts/watcher.py` |
-| Activity log | `.orchestrator/logs/activity_<agent>.log` | Per-agent tool activity summary | `hooks/activity_logger.py` |
-| Monitor inbox | `dispatch/gate-monitor/inbox/` | Live summarized activity for `gate-monitor` | watcher and `monitor_ingest.py` |
-| Verdict store | `.orchestrator/merged_verdicts/<task_id>.json` | Commit-gate result for the current task | watcher |
+## Monitor Streams
 
-## How To Read Them
+- primary: `monitor_ingest.py` writes JSON activity summaries to `dispatch/gate-monitor/inbox/`
+- optional fallback: `activity_logger.py` -> `send.py` -> `watcher.py` when `session.monitor_activity_to_dispatch=true`
 
-- Use the decision trace when a hook allowed, blocked, or skipped something and you need to know why.
-- Use the audit log when the operator or watcher made a durable state change.
-- Use the watcher log when mail delivery, wake behavior, or verdict fan-in looks wrong.
-- Use the activity log when you need a per-agent summary of what the tool call did.
-- Use the monitor inbox when you want to know what `gate-monitor` was actually told.
+## Proven locally
 
-## Stream Boundaries
-
-- Decision trace is for decisions, not full payload history.
-- Audit log is for durable events, not a replacement for message files.
-- Watcher log is a run log, not a communication bus.
-- Inbox files are communication, not audit history.
-- `merged_verdicts` is a single-writer output, not a scratchpad.
-
-## Common Checks
-
-1. If a hook seems silent, check `.orchestrator/logs/decision_trace.log` first.
-2. If a message never arrived, check `.orchestrator/logs/watcher.log` next.
-3. If the monitor saw nothing, check `dispatch/gate-monitor/inbox/`.
-4. If commit gating blocks, check `.orchestrator/merged_verdicts/<task_id>.json`.
-5. If the operator changed the flow manually, record it in `WAVE5_RESULTS_TEMPLATE.md`.
-
-## Practical Rule
-
-When the logs disagree, trust the most specific stream that matches the failure:
-
-- hook decision -> decision trace
-- delivery failure -> watcher log
-- operator action -> audit log
-- live observer input -> monitor inbox
-
-Do not use a later stream to explain away a missing earlier one.
+- primary monitor stream: proven
+- fallback monitor stream: proven
+- watcher startup log: proven
+- dispatch gate audit + trace emission: proven
+- FileChanged wildcard runtime hook-engine firing: still requires one live interactive proof after install

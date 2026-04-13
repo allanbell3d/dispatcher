@@ -5,7 +5,7 @@ Extracted from the Advert repo commit history (2026-04-10 to 2026-04-13).
 
 ---
 
-## Known Issues (as of 0.1.11)
+## Known Issues (as of 0.1.12)
 
 Local blockers from the 14-finding review are addressed. Remaining risk is integration proof, not known broken core behavior:
 
@@ -14,6 +14,26 @@ Local blockers from the 14-finding review are addressed. Remaining risk is integ
 | 1 | Full human-operated sprint flow still needs Allan confirmation on a real project | MEDIUM |
 | 2 | Historical frozen docs still mention legacy paths and are intentionally preserved for audit context | LOW |
 | 3 | `bin/orch_launcher.ps1` should be run with `pwsh`, not Windows PowerShell 5 | LOW |
+| 4 | Monitor/data-stream proof still needs Allan confirmation during a live Wave 5 sprint | MEDIUM |
+
+---
+
+## [0.1.12] — 2026-04-14 (role activation + wave 5 prep)
+
+### Added
+- Codex coordinated reviewer profiles for `gate-codex-architect` and `gate-codex-critic`, with matching `memory/` overlays and seeded dispatch folders.
+- `reviewers` config block with `available`, `active`, and `presets`, plus CLI controls via `scripts/orchestratorctl.py reviewers ...`.
+- Launcher reviewer-set control entry in `bin/orch_launcher.ps1`.
+- Wave 5 operator pack under `docs_dev/wave5/`.
+- `scripts/normalize_plan.py`, watcher plan format guide, and repo-local dispatcher plan-writer prompt/spec.
+- Backlog enrichment notes and role draft docs under `docs_dev/`.
+
+### Changed
+- Hook install inventory now emits wildcard `dispatch/*/inbox/*.md` and `dispatch/*/inbox/*.json` FileChanged matchers.
+- `trace_hook()` now honors configured Dubai time via a Windows-safe timezone fallback when `ZoneInfo` data is unavailable.
+- Dubizzle task backlog text was cleaned up for mojibake and duplicate shorthand acceptance criteria.
+- Coordinated protocol docs now point to `dispatch/gate-<name>/inbox/` and active reviewer routing.
+- Validation now treats taskless projects as healthy-but-idle, while `scripts/sprint_ready.py` and launcher `Sprint Ready Check` provide a strict active-sprint preflight.
 
 ---
 

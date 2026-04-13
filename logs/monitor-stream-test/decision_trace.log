@@ -1,0 +1,10 @@
+{"ts": "2026-04-14T02:46:52.875980+04:00", "hook": "monitor_ingest", "agent": "gate-ralph", "decision": "allow", "elapsed_ms": 20.974, "tool": "Bash", "recipients": ["gate-monitor"]}
+{"ts": "2026-04-14T02:46:53.021322+04:00", "hook": "activity_logger", "agent": "gate-ralph", "decision": "allow", "elapsed_ms": 20.556, "tool": "Bash"}
+{"ts": "2026-04-14T02:46:53.308862+04:00", "hook": "activity_logger", "agent": "gate-ralph", "decision": "allow", "elapsed_ms": 175.156, "tool": "Bash"}
+{"ts": "2026-04-14T02:46:53.714739+04:00", "hook": "liveness", "agent": "gate-ralph", "decision": "skip", "elapsed_ms": 0, "reason": "no last_tool_use file"}
+{"ts": "2026-04-14T02:46:53.716357+04:00", "hook": "liveness", "agent": "gate-monitor", "decision": "skip", "elapsed_ms": 3, "reason": "no last_tool_use file"}
+{"ts": "2026-04-14T02:48:45.505985+04:00", "hook": "monitor_ingest", "agent": "gate-ralph", "decision": "allow", "elapsed_ms": 20.373, "tool": "Bash", "recipients": ["gate-monitor"]}
+{"ts": "2026-04-14T02:48:45.655516+04:00", "hook": "activity_logger", "agent": "gate-ralph", "decision": "allow", "elapsed_ms": 20.957, "tool": "Bash"}
+{"ts": "2026-04-14T02:48:45.957572+04:00", "hook": "activity_logger", "agent": "gate-ralph", "decision": "allow", "elapsed_ms": 173.195, "tool": "Bash"}
+{"ts": "2026-04-14T02:48:46.332250+04:00", "hook": "liveness", "agent": "gate-ralph", "decision": "skip", "elapsed_ms": 0, "reason": "no last_tool_use file"}
+{"ts": "2026-04-14T02:48:46.333644+04:00", "hook": "liveness", "agent": "gate-monitor", "decision": "skip", "elapsed_ms": 2, "reason": "no last_tool_use file"}

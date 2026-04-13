@@ -1,0 +1,12 @@
+{"ts": "2026-04-14T02:44:33.535242+04:00", "hook": "dispatch_gate", "agent": "gate-ralph", "decision": "allow", "elapsed_ms": 32.906, "state": "WORKING", "tool": "Write", "inbox_depth": 1}
+{"ts": "2026-04-14T02:44:33.676498+04:00", "hook": "activity_logger", "agent": "gate-ralph", "decision": "allow", "elapsed_ms": 19.7, "tool": "Bash"}
+{"ts": "2026-04-14T02:44:34.077565+04:00", "hook": "liveness", "agent": "gate-ralph", "decision": "skip", "elapsed_ms": 0, "reason": "no last_tool_use file"}
+{"ts": "2026-04-14T02:44:34.079032+04:00", "hook": "liveness", "agent": "gate-monitor", "decision": "skip", "elapsed_ms": 3, "reason": "no last_tool_use file"}
+{"ts": "2026-04-14T02:46:50.975918+04:00", "hook": "dispatch_gate", "agent": "gate-ralph", "decision": "allow", "elapsed_ms": 20.566, "state": "WORKING", "tool": "Write", "inbox_depth": 1}
+{"ts": "2026-04-14T02:46:51.113965+04:00", "hook": "activity_logger", "agent": "gate-ralph", "decision": "allow", "elapsed_ms": 19.183, "tool": "Bash"}
+{"ts": "2026-04-14T02:46:51.522469+04:00", "hook": "liveness", "agent": "gate-ralph", "decision": "skip", "elapsed_ms": 0, "reason": "no last_tool_use file"}
+{"ts": "2026-04-14T02:46:51.524149+04:00", "hook": "liveness", "agent": "gate-monitor", "decision": "skip", "elapsed_ms": 3, "reason": "no last_tool_use file"}
+{"ts": "2026-04-14T02:48:43.650006+04:00", "hook": "dispatch_gate", "agent": "gate-ralph", "decision": "allow", "elapsed_ms": 18.253, "state": "WORKING", "tool": "Write", "inbox_depth": 1}
+{"ts": "2026-04-14T02:48:43.779513+04:00", "hook": "activity_logger", "agent": "gate-ralph", "decision": "allow", "elapsed_ms": 18.746, "tool": "Bash"}
+{"ts": "2026-04-14T02:48:44.181524+04:00", "hook": "liveness", "agent": "gate-ralph", "decision": "skip", "elapsed_ms": 0, "reason": "no last_tool_use file"}
+{"ts": "2026-04-14T02:48:44.182996+04:00", "hook": "liveness", "agent": "gate-monitor", "decision": "skip", "elapsed_ms": 3, "reason": "no last_tool_use file"}
