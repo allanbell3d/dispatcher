@@ -50,6 +50,13 @@ _CONFIG = {
 }
 
 
+def _config_with_shared_root(shared_root: str) -> dict:
+    data = json.loads(json.dumps(_CONFIG))
+    data["shared_roots"]["orchestrator_primary"] = shared_root
+    data["shared_roots"]["orchestrator_fallback"] = shared_root
+    return data
+
+
 def load_module():
     spec = importlib.util.spec_from_file_location("install_hooks_under_test", SCRIPT)
     module = importlib.util.module_from_spec(spec)
@@ -100,6 +107,24 @@ def test_inventory_includes_both_inbox_suffixes_and_executor_hooks():
     non_exec_post = inventory_non_exec["hooks"]["PostToolUse"]
     assert not any("check_gate" in hook["command"] for entry in non_exec_pre for hook in entry["hooks"])
     assert not any("monitor_ingest" in hook["command"] for entry in non_exec_post for hook in entry["hooks"])
+
+
+def test_inventory_prefers_configured_shared_engine_root_for_hook_commands():
+    mod = load_module()
+    config = _config_with_shared_root("W:/Claude_Library/orchestrator")
+
+    inventory = mod.build_hook_inventory(ROOT, "gate-ralph", config)
+
+    commands = [
+        hook["command"]
+        for entries in inventory["hooks"].values()
+        for entry in entries
+        for hook in entry.get("hooks", [])
+    ]
+
+    assert any('python "W:\\Claude_Library\\orchestrator\\hooks\\dispatch_gate.py"' == cmd for cmd in commands)
+    assert any('python "W:\\Claude_Library\\orchestrator\\hooks\\stop_notify.py"' == cmd for cmd in commands)
+    assert not any(str(ROOT / "hooks" / "dispatch_gate.py") in cmd for cmd in commands)
 
 
 def test_merge_settings_reconciles_by_event_matcher_and_command():

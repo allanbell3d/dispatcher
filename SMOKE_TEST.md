@@ -8,8 +8,6 @@ python scripts/dispatch_contract_smoke.py
 
 Creates a temp project structure, runs message routing checks, verifies dispatch folder creation. Self-contained — no external dependencies.
 
-**Note:** Currently fails due to bootstrap issue. Fix `parents[0]` → `parents[1]` first.
-
 ---
 
 ## Manual Smoke — Full Gate Lifecycle
@@ -19,9 +17,10 @@ Creates a temp project structure, runs message routing checks, verifies dispatch
 ```bash
 python scripts/doctor.py .
 python scripts/validate.py .
+python scripts/sprint_ready.py .
 ```
 
-Both must pass. Doctor checks Python version, psmux/tmux, state directories, hook flags. Validate checks config against `schemas/config_schema.json` and cross-references agent names in routing/gate rules.
+Doctor and validate should pass on a healthy install. `sprint_ready.py` should only pass once task files exist and `current_task.json` selects a valid task.
 
 ### 2. Install Hooks
 
@@ -52,7 +51,7 @@ Drop a task JSON into `.orchestrator/tasks/`:
 }
 ```
 
-Verify: task appears in gate-ralph's inbox.
+Set `current_task.json` to that task, rerun `python scripts/sprint_ready.py .`, then verify the task appears in gate-ralph's inbox.
 
 ### 5. Verify dispatch_gate States
 

@@ -1689,6 +1689,17 @@ function Invoke-ValidateConfig {
     Pause-Notice ""
 }
 
+function Invoke-SprintReady {
+    Write-Host ""
+    Write-Host "  Running sprint-ready preflight..." -ForegroundColor Cyan
+    try {
+        Invoke-OrchestratorCtl @("sprint-ready", $ProjectRoot) 2>&1 | ForEach-Object { Write-Host "  $_" }
+    } catch {
+        Write-Host "  Sprint-ready check failed to run: $($_.Exception.Message)" -ForegroundColor Red
+    }
+    Pause-Notice ""
+}
+
 function Invoke-Doctor {
     Clear-Host
     Write-Host ""
@@ -2203,22 +2214,23 @@ function Build-MainMenu {
     $items += New-MenuItem -Label "───── Configuration ─────" -Value $null -Selectable:$false
     $items += New-MenuItem -Label "27. Change Project Directory"  -Value @{ type="change_project" }
     $items += New-MenuItem -Label "28. Validate Config"           -Value @{ type="validate_config" }
-    $items += New-MenuItem -Label "29. Doctor"                    -Value @{ type="doctor" }
-    $items += New-MenuItem -Label "30. Reviewer Set..."           -Value @{ type="reviewer_set" }
-    $items += New-MenuItem -Label "31. Reset Watcher State"       -Value @{ type="reset_watcher" }
-    $items += New-MenuItem -Label "32. Force Kill Watcher"        -Value @{ type="kill_watcher" }
+    $items += New-MenuItem -Label "29. Sprint Ready Check"        -Value @{ type="sprint_ready" }
+    $items += New-MenuItem -Label "30. Doctor"                    -Value @{ type="doctor" }
+    $items += New-MenuItem -Label "31. Reviewer Set..."           -Value @{ type="reviewer_set" }
+    $items += New-MenuItem -Label "32. Reset Watcher State"       -Value @{ type="reset_watcher" }
+    $items += New-MenuItem -Label "33. Force Kill Watcher"        -Value @{ type="kill_watcher" }
     $items += New-MenuItem -Label " " -Value $null -Selectable:$false
 
     # Quick Access
     $items += New-MenuItem -Label "───── Quick Access ─────" -Value $null -Selectable:$false
-    $items += New-MenuItem -Label "33. Audit Log (folder)"        -Value @{ type="open_folder"; path=$LogsDir }
-    $items += New-MenuItem -Label "34. Dispatch Folders"           -Value @{ type="open_folder"; path=$DispatchDir }
-    $items += New-MenuItem -Label "35. Agent Inboxes..."           -Value @{ type="agent_inboxes_menu" }
-    $items += New-MenuItem -Label "36. Config File"                -Value @{ type="open_file"; path=$ConfigPath }
-    $items += New-MenuItem -Label "37. Spec & Plans"               -Value @{ type="open_folder"; path=(Join-Path $ProjectRoot "docs") }
-    $items += New-MenuItem -Label "38. Open Project Folder"        -Value @{ type="open_folder"; path=$ProjectRoot }
+    $items += New-MenuItem -Label "34. Audit Log (folder)"        -Value @{ type="open_folder"; path=$LogsDir }
+    $items += New-MenuItem -Label "35. Dispatch Folders"           -Value @{ type="open_folder"; path=$DispatchDir }
+    $items += New-MenuItem -Label "36. Agent Inboxes..."           -Value @{ type="agent_inboxes_menu" }
+    $items += New-MenuItem -Label "37. Config File"                -Value @{ type="open_file"; path=$ConfigPath }
+    $items += New-MenuItem -Label "38. Spec & Plans"               -Value @{ type="open_folder"; path=(Join-Path $ProjectRoot "docs") }
+    $items += New-MenuItem -Label "39. Open Project Folder"        -Value @{ type="open_folder"; path=$ProjectRoot }
     $items += New-MenuItem -Label " " -Value $null -Selectable:$false
-    $items += New-MenuItem -Label "39. Quit"                       -Value @{ type="quit" }
+    $items += New-MenuItem -Label "40. Quit"                       -Value @{ type="quit" }
 
     return $items
 }
@@ -2250,7 +2262,7 @@ if ($DryRun) {
         "Build-InstallMenu", "Invoke-DeployToProject", "Invoke-DeployEngine",
         "Invoke-DeployAgents", "Invoke-DeleteFromProject", "Invoke-DeleteEngine",
         "Invoke-BackupSettings", "Invoke-RestoreSettings",
-        "Invoke-ChangeProject", "Invoke-ValidateConfig", "Invoke-Doctor",
+        "Invoke-ChangeProject", "Invoke-ValidateConfig", "Invoke-SprintReady", "Invoke-Doctor",
         "Invoke-ResetWatcher", "Invoke-KillWatcher",
         "Build-AgentInboxMenu",
         "Invoke-SprintWizard", "Invoke-SprintPause", "Invoke-SprintResume",
@@ -2413,6 +2425,7 @@ Push-State @{
             # --- Configuration ---
             "change_project"   { Invoke-ChangeProject; continue }
             "validate_config"  { Invoke-ValidateConfig; continue }
+            "sprint_ready"     { Invoke-SprintReady; continue }
             "doctor"           { Invoke-Doctor; continue }
             "reviewer_set"     { Invoke-ReviewerSet; continue }
             "reset_watcher"    { Invoke-ResetWatcher; (Cur).items = Build-MainMenu; continue }  # rebuild: watcher state changed

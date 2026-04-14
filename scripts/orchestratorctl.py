@@ -276,7 +276,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Helper wrapper for common orchestrator commands")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    for name in ["doctor", "validate", "smoke"]:
+    for name in ["doctor", "validate", "sprint-ready", "smoke"]:
         p = sub.add_parser(name)
         p.add_argument("project", nargs="?", default=None)
 
@@ -345,6 +345,8 @@ def main() -> int:
         return run("doctor.py", [args.project] if args.project else [])
     if args.cmd == "validate":
         return run("validate.py", [args.project] if args.project else [])
+    if args.cmd == "sprint-ready":
+        return run("sprint_ready.py", [args.project] if args.project else [])
     if args.cmd == "smoke":
         return run("dispatch_contract_smoke.py", [args.project] if args.project else [])
     if args.cmd == "send":

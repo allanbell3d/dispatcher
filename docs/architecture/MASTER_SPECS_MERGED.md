@@ -86,7 +86,7 @@ It is an **experiment rig, not a product**. Zero code changes between experiment
 
 | Decision | Value | Source |
 |---|---|---|
-| Engine source repo | `D:\IA\orchestration\` → rename `dispatcher\`, remote `github.com/allanbell3d/dispatcher` | Allan 2026-04-12 |
+| Engine source repo | `D:\IA\dispatcher_repo\` , remote `github.com/allanbell3d/dispatcher` | Allan 2026-04-12 |
 | Engine deployed (primary) | `W:\Claude_Library\orchestrator\` (NAS) | Allan 2026-04-10 |
 | Engine deployed (fallback) | `D:\IA\orchestrator\` | Allan 2026-04-10 |
 | Engine staged during dev | `<project>/D_staged/` and `<project>/W_staged/` | Allan 2026-04-12 |

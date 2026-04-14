@@ -8,7 +8,20 @@ if str(ROOT) not in sys.path:
 import argparse
 import json
 
-from lib.common import ensure_dispatch_dirs, load_project_config, resolve_path, resolve_project_root
+from lib.common import (
+    ensure_dispatch_dirs,
+    load_project_config,
+    resolve_path,
+    resolve_project_root,
+    resolve_shared_roots,
+)
+
+
+def canonical_hook_root(project_root: Path, config: dict) -> Path:
+    orchestrator_root, _ = resolve_shared_roots(config)
+    if orchestrator_root:
+        return orchestrator_root / "hooks"
+    return ROOT / "hooks"
 
 def hook_command(script_path: Path) -> str:
     return f'python "{script_path}"'
@@ -28,8 +41,8 @@ def hook_entry(matcher: str, script_path: Path, *, if_clause: str = "", async_: 
         entry["if"] = if_clause
     return entry
 
-def build_hook_inventory(orchestrator_root, agent: str, config: dict) -> dict:
-    hook_root = orchestrator_root / "hooks"
+def build_hook_inventory(project_root: Path, agent: str, config: dict) -> dict:
+    hook_root = canonical_hook_root(project_root, config)
     is_executor = any(
         a.get("executor")
         for a in config.get("agents", [])
@@ -186,7 +199,6 @@ def main() -> int:
 
     project_root = resolve_project_root(args.project)
     config = load_project_config(project_root)
-    orch_root = ROOT
 
     # Ensure project structure exists
     dispatch_dir = resolve_path("dispatch_root", project_root, config)
@@ -198,7 +210,7 @@ def main() -> int:
         resolve_path(key, project_root, config).mkdir(parents=True, exist_ok=True)
 
     def install_for(agent_name: str, target_str: str = "") -> str:
-        data = build_hook_inventory(orch_root, agent_name, config)
+        data = build_hook_inventory(project_root, agent_name, config)
         target = target_str or args.output or args.settings_file
         if target:
             target_path = Path(target)
@@ -214,7 +226,7 @@ def main() -> int:
             agent_name = (agent_cfg.get("name") or "").strip()
             if not agent_name:
                 continue
-            merged = merge_settings(merged, build_hook_inventory(orch_root, agent_name, config))
+            merged = merge_settings(merged, build_hook_inventory(project_root, agent_name, config))
         write_settings(target_path, {}, merged)
         print(f"written to {target_path}")
         print(f"merged hooks for {sum(1 for a in config.get('agents', []) if (a.get('name') or '').strip())} agents")

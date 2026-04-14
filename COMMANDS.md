@@ -2,8 +2,6 @@
 
 All commands run from the repo root. Python commands require the engine root on `sys.path`.
 
-**Note:** As of v0.1.10, all Python commands fail with `ModuleNotFoundError` due to the bootstrap issue. Fix `parents[0]` → `parents[1]` in all hooks/ and scripts/ first, or set `PYTHONPATH` to the repo root.
-
 Primary launcher: `bin/orch_launcher.ps1`. The older `bin/launch.ps1` and `bin/launch.sh` scripts are legacy fossils.
 
 ---
@@ -14,8 +12,11 @@ Primary launcher: `bin/orch_launcher.ps1`. The older `bin/launch.ps1` and `bin/l
 # Check prerequisites (Python 3.10+, psmux/tmux, state dirs, hooks)
 python scripts/doctor.py .
 
-# Validate config against schema + cross-reference agent names
+# Validate install/runtime health without requiring an active sprint
 python scripts/validate.py .
+
+# Fail unless a real sprint can start now (tasks loaded + current task selected)
+python scripts/sprint_ready.py .
 
 # Show all resolved paths from config
 python scripts/orchestratorctl.py paths .
@@ -31,10 +32,10 @@ python scripts/install_hooks.py --all
 python scripts/install_hooks.py --agent gate-ralph
 
 # Disable a specific hook at runtime (creates flag file)
-python scripts/orchestratorctl.py disable <hook-name> .
+python scripts/orchestratorctl.py toggle-hook --hook <hook-name> --disable .
 
 # Re-enable a hook
-python scripts/orchestratorctl.py enable <hook-name> .
+python scripts/orchestratorctl.py toggle-hook --hook <hook-name> --enable .
 ```
 
 ## Sprint Operations
@@ -43,11 +44,14 @@ python scripts/orchestratorctl.py enable <hook-name> .
 # Show sprint status (current task, inbox depths, fan-ins, last activity)
 python scripts/orchestratorctl.py status .
 
+# Strict sprint preflight via the shared CLI wrapper
+python scripts/orchestratorctl.py sprint-ready .
+
 # Resume a stuck task (re-dispatch, optional --refan to re-notify reviewers)
-python scripts/orchestratorctl.py resume <task_id> . [--refan]
+python scripts/orchestratorctl.py resume . --agent gate-ralph [--refan]
 
 # Emergency force-approve a stuck gate (audit logged)
-python scripts/orchestratorctl.py override <task_id> .
+python scripts/orchestratorctl.py override . --task TASK-123 --verdict approved --reason "operator override"
 ```
 
 ## Watcher
@@ -64,10 +68,10 @@ python scripts/watcher.py .
 
 ```powershell
 # Full control panel — sprint wizard, agent sessions, hook control, status, deploy
-powershell -File bin/orch_launcher.ps1
+pwsh -NoProfile -File bin/orch_launcher.ps1
 ```
 
-38 menu items: launch/pause/resume/stop sprint, status dashboard, agent terminals, hook toggles, deploy to project, backup/restore, and more. See `docs_dev/specs_frozen/LAUNCHER_SPEC.md` for the full spec.
+The launcher exposes separate `Validate Config` and `Sprint Ready Check` actions so idle-project health and active sprint preflight stay distinct.
 
 Halt flags are `.flag` files in `.orchestrator/halts/`.
 

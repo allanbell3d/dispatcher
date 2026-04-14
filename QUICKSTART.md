@@ -22,7 +22,7 @@ The root `sprint_profiles/` directory is the deploy-time template source; live s
 
 ```powershell
 # Option A: use the launcher
-powershell -File bin/orch_launcher.ps1
+pwsh -NoProfile -File bin/orch_launcher.ps1
 # (preferred; `bin/launch.ps1` and `bin/launch.sh` are legacy fossils)
 # → Install Options → Deploy to Project → pick your project folder
 
@@ -50,20 +50,21 @@ See `schemas/config_schema.json` for the full schema.
 ```bash
 python scripts/doctor.py <your-project>
 python scripts/validate.py <your-project>
+python scripts/sprint_ready.py <your-project>
 ```
 
-Doctor checks prerequisites. Validate checks config against schema + cross-references agent names, routing, gate rules.
+Doctor checks prerequisites. Validate checks install/runtime health. Sprint-ready is the strict preflight for a live sprint.
 
-Both must pass before launching.
+Use `validate.py` after deployment. Use `sprint_ready.py` only once tasks are loaded and you are about to run a real sprint.
 
 ## 5. Launch a Sprint
 
 ```powershell
-powershell -File bin/orch_launcher.ps1
+pwsh -NoProfile -File bin/orch_launcher.ps1
 ```
 
 The launcher:
-1. Validates config
+1. Validates config and lets you run a separate sprint-ready check
 2. Creates dispatch folders for all agents
 3. Starts the watcher (background supervisor loop)
 4. Opens psmux terminals per agent with `GATE_AGENT_NAME` set
@@ -97,4 +98,4 @@ Dual-write — NAS archive + project local:
 
 ## Current Limitation
 
-As of v0.1.10, the Python import bootstrap is broken. All commands fail with `ModuleNotFoundError`. The fix is to change `parents[0]` to `parents[1]` in the sys.path block of every file in `hooks/` and `scripts/`. See [STATE.md](STATE.md) for the full issue list.
+Live end-to-end human sprint proof is still pending. Local validation, launcher dry-run, and focused pytest coverage pass in this repo, but the mixed-agent production flow still needs Allan confirmation on a real project.
