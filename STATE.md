@@ -6,6 +6,14 @@
 
 ---
 
+## Documentation
+
+- Approved guides and contracts live in `docs/`.
+- Draft plans, reviews, reports, runbooks, and frozen working material live in `docs_dev/`.
+- Promotion and naming rules are defined in `docs/DOCS_GOVERNANCE.md`.
+
+---
+
 ## Current Phase
 
 **Stabilization.** The 14-finding remediation pass is implemented in-repo, and the next control layer is now landing: reviewer activation, Codex reviewer profiles, wildcard hook install reduction, Wave 5 operator docs, and plan-ingest tooling. Remaining work is proving the full gated sprint flow end-to-end with Allan on a real project.
