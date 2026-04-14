@@ -11,6 +11,7 @@ This guide is for maintainers working on the dispatcher repo itself: hooks, watc
 | `.orchestrator/` | Canonical sample/runtime state tree used by the repo and by tests. |
 | `agents/profiles/coordinated/` | Live coordinated role files used by dispatcher agents. |
 | `agents/reference_prompts/` | Source material and prompt ingredients. Useful reference, not runtime truth. |
+| `artifacts/` | Canonical seed, fixture, and example library for bootstrap, tests, and docs. |
 | `bin/` | Launcher entry points. `orch_launcher.ps1` is primary. |
 | `docs/` | Approved guides, contracts, indexes, and architecture references. |
 | `docs_dev/` | Drafts, plans, reports, reviews, working runbooks, and frozen reference material. |

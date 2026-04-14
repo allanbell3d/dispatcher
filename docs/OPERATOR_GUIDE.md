@@ -15,6 +15,12 @@ If you are trying to run or troubleshoot a sprint, start here first.
 
 Wave-specific trial material and live-sprint runbooks remain in `docs_dev/wave5/`.
 
+Reusable sample artifacts now live under `artifacts/`:
+
+- `artifacts/install/` for bootstrap seeds
+- `artifacts/examples/` for readable examples
+- `artifacts/fixtures/` for test and smoke inputs
+
 ## Health Checks Vs Sprint Readiness
 
 Dispatcher uses three different checks on purpose:
@@ -111,3 +117,4 @@ Repo-side working evidence and review artifacts live under:
 - Use [`../QUICKSTART.md`](../QUICKSTART.md) when deploying dispatcher into a fresh project.
 - Use [`../SMOKE_TEST.md`](../SMOKE_TEST.md) when proving the flow or diagnosing setup drift.
 - Use `docs_dev/wave5/` when running or analyzing the current live-sprint rehearsal pack.
+- Use `artifacts/examples/` when you need a current sample task, plan, or message shape.

@@ -1,0 +1,6 @@
+{
+  "agent": "gate-monitor",
+  "tool": "Bash",
+  "decision": "watch",
+  "reason": "Expected git status during waiting state"
+}

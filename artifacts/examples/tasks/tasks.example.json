@@ -1,0 +1,16 @@
+[
+  {
+    "task_id": "EX-001",
+    "batch": "critical",
+    "status": "pending",
+    "title": "Add operator landing page",
+    "function": "docs",
+    "details": "Create a single approved operator guide and point the smaller reference docs to it.",
+    "acceptance_criteria": [
+      "Operator onboarding has one approved landing page"
+    ],
+    "reference_paths": [
+      "docs/OPERATOR_GUIDE.md"
+    ]
+  }
+]
