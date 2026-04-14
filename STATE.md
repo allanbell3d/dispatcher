@@ -1,7 +1,7 @@
 # Dispatcher — Project State
 
-**Version:** v0.1.12
-**Branch:** dev
+**Version:** v0.1.13
+**Branch:** codex/dispatcher-parallel-plan-pack
 **Repo:** https://github.com/allanbell3d/dispatcher
 
 ---
@@ -16,11 +16,12 @@
 
 ## Current Phase
 
-**Stabilization.** The 14-finding remediation pass is implemented in-repo, and the next control layer is now landing: reviewer activation, Codex reviewer profiles, wildcard hook install reduction, Wave 5 operator docs, and plan-ingest tooling. Remaining work is proving the full gated sprint flow end-to-end with Allan on a real project.
+**Foundation consolidation complete.** The dispatcher now has governed approved docs, reusable install/test artifacts, refreshed coordinated role/init packs, and an explicit watcher-plan ingest contract. The next layer can start launcher/control-plane work on top of these foundations without reopening the documentation split.
 
 ## What Works (verified locally)
 
 - Hook and script imports now resolve from the repo root.
+- Approved entry-point docs now live in `docs/`, with promotion rules defined in `docs/DOCS_GOVERNANCE.md`.
 - `install_hooks.py --all` writes and merges `.claude/settings.local.json`.
 - FileChanged hook inventory now renders wildcard inbox matchers for both `.md` and `.json`.
 - Enforcement hooks fail secure on malformed payloads and trace allow/deny/skip/error paths.
@@ -30,7 +31,9 @@
 - Reviewer activation is config-driven through `.orchestrator/config.json -> reviewers`.
 - Codex reviewer profiles and memory overlays exist for `gate-codex-architect` and `gate-codex-critic`.
 - `trace_hook()` honors configured Dubai time even when `ZoneInfo` is unavailable on Windows.
-- Wave 5 operator docs and watcher-plan normalization tooling are present in-repo.
+- Dispatcher artifact seeds, fixtures, and examples now exist in `artifacts/` and are exercised by smoke/tests.
+- Watcher-plan normalization now has an explicit contract in `docs/PLAN_INGEST_CONTRACT.md`.
+- Coordinated gate role prompts, memory overlays, and startup notes are aligned to the current dispatch contract.
 - `validate.py`, `doctor.py`, and the pytest suite all run successfully in this repo.
 - Idle projects now validate cleanly, and strict sprint preflight is exposed separately through `scripts/sprint_ready.py`, `scripts/orchestratorctl.py sprint-ready`, and the launcher.
 
@@ -41,18 +44,18 @@
 3. **Windows PowerShell 5 is not a supported launcher shell** — `bin/orch_launcher.ps1` dry-run succeeds in `pwsh`; older `powershell.exe` lacks `ConvertFrom-Json -AsHashtable`.
 4. **Monitor/data-stream proof still needs a live sprint** — monitor ingest and fallback activity shipping are wired/documented, but Allan still needs to confirm the real mixed-agent flow under production use.
 
-## What Was Fixed In 0.1.12
+## What Was Fixed In 0.1.13
 
 | Priority | Fix | Scope |
 |----------|-----|-------|
-| 1 | Reviewer activation moved to a dedicated `reviewers` config block with presets and CLI control | `.orchestrator/config.json`, `schemas/config_schema.json`, `scripts/orchestratorctl.py` |
-| 2 | Codex reviewer profiles, memory overlays, and dispatch folders added | `agents/profiles/coordinated/`, `memory/`, `dispatch/` |
-| 3 | FileChanged install inventory reduced to wildcard inbox matchers | `scripts/install_hooks.py` |
-| 4 | Launcher now exposes reviewer-set control in dry-run verified menu flow | `bin/orch_launcher.ps1` |
-| 5 | Trace timestamps respect configured Dubai time with Windows-safe fallback | `lib/common.py` |
-| 6 | Dubizzle task backlog cleaned up for mojibake and duplicate shorthand acceptance criteria | `.orchestrator/tasks/tasks.json` |
-| 7 | Plan normalizer and watcher plan format guidance added | `scripts/normalize_plan.py`, `docs_dev/plans/WATCHER_PLAN_FORMAT_GUIDE.md` |
-| 8 | Wave 5 operator doc pack added | `docs_dev/wave5/` |
+| 1 | Approved docs were consolidated behind a formal governance split and new entry-point guides | `docs/INDEX.md`, `docs/DOCS_GOVERNANCE.md`, `docs/OPERATOR_GUIDE.md`, `docs/DEVELOPER_GUIDE.md` |
+| 2 | Reusable install seeds, fixtures, and worked examples were added for dispatcher setup and tests | `artifacts/`, `tests/project_artifacts.py` |
+| 3 | Dispatch contract smoke coverage now boots from repo artifacts and uses repo-local scratch paths | `scripts/dispatch_contract_smoke.py` |
+| 4 | Watcher plan ingest is now governed by a written contract with stricter normalization validation | `docs/PLAN_INGEST_CONTRACT.md`, `scripts/normalize_plan.py`, `tests/test_plan_normalization.py` |
+| 5 | Backlog items and writer prompts were normalized to the ingest contract, including structured `deps` support | `.orchestrator/tasks/tasks.json`, `agents/reference_prompts/dispatcher-plan-writer.md` |
+| 6 | Coordinated role prompts were rebuilt around the current dispatch-first runtime contract | `agents/profiles/coordinated/`, `agents/protocols/coordinated/README.md` |
+| 7 | Gate memory notes and startup protocols were simplified to current repo reality | `memory/gate-*/` |
+| 8 | Draft role pack source material and execution inventories were staged under `docs_dev/` for future promotion | `docs_dev/roles/`, `docs_dev/reports/` |
 
 ## Session Log
 
@@ -69,3 +72,4 @@
 | 2026-04-13 | Codex | Implemented full-finding stabilization pass: contract lock, hook hardening, watcher/task fixes, launcher/docs/test rebuild | pending commit |
 | 2026-04-14 | Codex | Added reviewer activation presets/CLI, Codex reviewer profiles, wildcard hook install, launcher reviewer menu, Wave 5 docs, plan normalizer, and Dubizzle backlog cleanup | pending commit |
 | 2026-04-14 | Codex | Split install validation from sprint preflight with `sprint_ready.py`, launcher action, and operator doc updates | pending commit |
+| 2026-04-14 | Codex | Executed the dispatcher parallel plan pack across docs governance, artifact library, role/init refresh, and plan-ingest normalization; verified targeted pytest and dispatch smoke coverage | `daecd3c`→`5bd18f0` |
