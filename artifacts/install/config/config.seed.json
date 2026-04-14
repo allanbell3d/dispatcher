@@ -1,0 +1,183 @@
+{
+  "project": "dispatcher",
+  "shared_roots": {
+    "orchestrator_primary": "W:/Claude_Library/orchestrator",
+    "orchestrator_fallback": "D:/IA/orchestrator",
+    "agents_primary": "W:/Claude_Library/agents",
+    "agents_fallback": "D:/IA/agents"
+  },
+  "paths": {
+    "state_root": ".orchestrator",
+    "dispatch_root": "dispatch",
+    "plans": ".orchestrator/plans",
+    "tasks": ".orchestrator/tasks",
+    "current_task": ".orchestrator/tasks/current_task.json",
+    "trackers": ".orchestrator/trackers.json",
+    "diffs": ".orchestrator/diffs",
+    "logs": ".orchestrator/logs",
+    "audit_log": ".orchestrator/audit.log",
+    "decision_trace": ".orchestrator/logs/decision_trace.log",
+    "merged_verdicts": ".orchestrator/merged_verdicts",
+    "halts": ".orchestrator/halts",
+    "runtime_flags": ".orchestrator/runtime_flags",
+    "approvals_source": "outbox",
+    "halt_mode": "flag_file",
+    "playwright_tests": "tests/e2e"
+  },
+  "wake": {
+    "mechanism": "psmux",
+    "first_attempt_seconds": 15,
+    "retry_interval_seconds": 10,
+    "max_retries": 30,
+    "monitor_pulse_seconds": 30,
+    "idle_threshold_seconds": 120,
+    "liveness_check_interval_seconds": 30
+  },
+  "session": {
+    "require_ready_files": false,
+    "halt_between_batches": true,
+    "session_prefix": "gate-",
+    "timezone": "Asia/Dubai"
+  },
+  "agents": [
+    {
+      "name": "gate-ralph",
+      "profile": "gate-ralph",
+      "executor": true,
+      "roles": [
+        "coder"
+      ]
+    },
+    {
+      "name": "gate-architect",
+      "profile": "gate-architect",
+      "executor": false,
+      "roles": [
+        "reviewer"
+      ]
+    },
+    {
+      "name": "gate-critic",
+      "profile": "gate-critic",
+      "executor": false,
+      "roles": [
+        "reviewer"
+      ]
+    },
+    {
+      "name": "gate-codex-architect",
+      "profile": "gate-codex-architect",
+      "executor": false,
+      "roles": [
+        "reviewer"
+      ]
+    },
+    {
+      "name": "gate-codex-critic",
+      "profile": "gate-codex-critic",
+      "executor": false,
+      "roles": [
+        "reviewer"
+      ]
+    },
+    {
+      "name": "gate-monitor",
+      "profile": "gate-monitor",
+      "executor": false,
+      "roles": [
+        "monitor",
+        "playwright"
+      ]
+    },
+    {
+      "name": "gate-playwright",
+      "profile": "gate-playwright",
+      "executor": false,
+      "roles": [
+        "playwright"
+      ]
+    }
+  ],
+  "reviewers": {
+    "available": [
+      "gate-architect",
+      "gate-critic",
+      "gate-codex-architect",
+      "gate-codex-critic"
+    ],
+    "active": [
+      "gate-architect",
+      "gate-critic"
+    ],
+    "presets": {
+      "classic": [
+        "gate-architect",
+        "gate-critic"
+      ],
+      "codex": [
+        "gate-codex-architect",
+        "gate-codex-critic"
+      ],
+      "hybrid_a": [
+        "gate-architect",
+        "gate-codex-critic"
+      ],
+      "hybrid_b": [
+        "gate-critic",
+        "gate-codex-architect"
+      ],
+      "all_four": [
+        "gate-architect",
+        "gate-critic",
+        "gate-codex-architect",
+        "gate-codex-critic"
+      ]
+    }
+  },
+  "routing": {
+    "cc_all": [
+      "gate-monitor"
+    ],
+    "review_requests_to": [
+      "gate-architect",
+      "gate-critic"
+    ],
+    "escalation_target": "allan",
+    "on_batch_complete": [
+      "gate-playwright"
+    ],
+    "on_test_failure": [
+      "gate-ralph"
+    ],
+    "on_test_passed": [
+      "gate-ralph"
+    ],
+    "on_stop": [
+      "gate-architect",
+      "gate-critic",
+      "gate-monitor"
+    ]
+  },
+  "gate": {
+    "require_approvals_from": [
+      "gate-architect",
+      "gate-critic"
+    ],
+    "consensus_rule": "unanimous",
+    "max_rework_rounds": 3,
+    "protected_branches": [
+      "dev",
+      "main"
+    ]
+  },
+  "fan_in": {
+    "review": {
+      "required": [
+        "gate-architect",
+        "gate-critic"
+      ],
+      "timeout_seconds": 300,
+      "on_timeout": "escalate_allan"
+    }
+  }
+}

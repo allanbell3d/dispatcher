@@ -1,0 +1,18 @@
+{
+  "plan_id": "dispatcher-example-plan",
+  "title": "Dispatcher Example Plan",
+  "description": "Replace with a project-specific sprint description.",
+  "tasks": [
+    {
+      "task_id": "T1",
+      "title": "Describe the first task",
+      "acceptance_criteria": [
+        "State one concrete expected result"
+      ],
+      "reference_paths": [
+        "src/example.py"
+      ],
+      "deps": []
+    }
+  ]
+}
