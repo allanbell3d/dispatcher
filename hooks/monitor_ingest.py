@@ -5,33 +5,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-"""
-Monitor ingest — PostToolUse hook.
-
-Source: MASTER_SPECS_MERGED.md
-  - "Wake + injection mechanism (the core loop)"
-  - Components #4: coder PostToolUse writes JSON summary to monitor inbox.
-  - Watcher COPY/MERGE/DISTRIBUTE/LIVENESS — ingest wakes monitor via watcher pulse.
-
-Behavior:
-  - Fires on every tool call from a coder-role agent.
-  - Skips silently for non-coder agents (matcher can't be role-aware).
-  - Writes a JSON summary of the tool call to each routing.cc_all target's
-    inbox (dispatch/<cc>/inbox/).
-  - Truncates tool_input and tool_response to keep injection bloat bounded.
-  - Never blocks the coder's tool call — always returns {}, always exits 0,
-  - Never raises — errors log to stderr.
-
-Relationship to activity_logger.py: activity_logger writes an audit log line
-per tool call AND optionally ships to monitor via send.py. monitor_ingest is
-the cleaner dedicated path — same data, direct write to monitor inbox, no
-subprocess hop. Both can run; activity_logger's subprocess shipping becomes
-redundant and should be disabled via session.monitor_activity_to_dispatch=false
-when monitor_ingest is wired.
-"""
+"""Consolidated monitor/logging pipeline trigger for Claude session JSONL."""
 import json
 import os
 import time as _time
+from datetime import datetime
+from pathlib import Path
 
 from lib.common import (
     atomic_write,
@@ -43,12 +22,18 @@ from lib.common import (
     timestamp,
     trace_hook,
 )
+from scripts.monitor_log import DurableTraceWriter
+from scripts.monitor_parse import parse_session_record
+from scripts.monitor_render import render_monitor_event
+from scripts.monitor_route import MonitorRouter
+from scripts.monitor_tail import load_checkpoint_state, save_checkpoint_state, tail_jsonl
 
 
 OK = {}
-MAX_INPUT_SUMMARY = 500
-MAX_RESPONSE_SUMMARY = 500
 COMMAND_MATCHER_TOOLS = {"Bash", "Write", "Edit", "MultiEdit", "Read", "Grep", "Glob"}
+CHECKPOINT_FILE = "monitor_tail_state.json"
+ROUTE_STATE_FILE = "monitor_route_state.json"
+TRACE_LOG_FILE = "monitor_trace.jsonl"
 
 
 def _log_stderr(msg: str) -> None:
@@ -58,22 +43,82 @@ def _log_stderr(msg: str) -> None:
         pass
 
 
-def _truncate(value, limit: int) -> str:
-    """JSON-serialize then truncate to bound injection bloat."""
-    try:
-        s = json.dumps(value, ensure_ascii=False, default=str)
-    except (TypeError, ValueError):
-        s = str(value)
-    if len(s) > limit:
-        return s[:limit] + f"...[+{len(s) - limit}]"
-    return s
-
-
-def _agent_has_role(config: dict, agent_name: str, role: str) -> bool:
+def _agent_roles(config: dict, agent_name: str) -> set[str]:
     for a in config.get("agents", []):
         if a.get("name") == agent_name:
-            return role in (a.get("roles") or [])
-    return False
+            return {str(role) for role in (a.get("roles") or []) if str(role)}
+    return set()
+
+
+def _monitor_source_role(roles: set[str]) -> str:
+    if "coder" in roles:
+        return "coder"
+    if "reviewer" in roles:
+        return "reviewer"
+    return ""
+
+
+def _project_slug(project_root: Path) -> str:
+    return str(project_root).replace(":", "-").replace("\\", "-").replace("/", "-")
+
+
+def _session_id_from_payload(payload: dict) -> str:
+    return str(payload.get("session_id") or payload.get("sessionId") or "").strip()
+
+
+def _resolve_transcript_path(project_root: Path, payload: dict) -> Path | None:
+    transcript_path = str(payload.get("transcript_path") or payload.get("transcriptPath") or "").strip()
+    if transcript_path:
+        candidate = Path(transcript_path)
+        if candidate.exists():
+            return candidate
+
+    session_id = _session_id_from_payload(payload)
+    if not session_id:
+        return None
+
+    candidate = Path.home() / ".claude" / "projects" / _project_slug(project_root) / f"{session_id}.jsonl"
+    if candidate.exists():
+        return candidate
+    return None
+
+
+def _load_route_state(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _save_route_state(path: Path, *, last_primary_event_at: datetime | None) -> None:
+    payload = {
+        "last_primary_event_at": last_primary_event_at.isoformat() if last_primary_event_at else "",
+    }
+    atomic_write(path, json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+
+
+def _hydrate_router(project_root: Path, config: dict) -> tuple[MonitorRouter, Path]:
+    state_path = resolve_path("runtime_flags", project_root, config) / ROUTE_STATE_FILE
+    router = MonitorRouter(
+        monitor_targets=config.get("routing", {}).get("cc_all", []),
+        primary_agents={"gate-ralph"},
+        idle_seconds=int(config.get("wake", {}).get("idle_threshold_seconds", 120)),
+    )
+    state = _load_route_state(state_path)
+    stamp = state.get("last_primary_event_at")
+    if isinstance(stamp, str) and stamp:
+        try:
+            router.last_primary_event_at = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+        except ValueError:
+            router.last_primary_event_at = None
+    return router, state_path
+
+
+def _aggregate_monitor_text(chunks: list[str]) -> str:
+    return "\n\n".join(chunk.strip() for chunk in chunks if chunk and chunk.strip()).strip()
 
 
 def main() -> int:
@@ -112,52 +157,133 @@ def main() -> int:
         print(json.dumps(OK))
         return 0
 
-    # Only coders ship to monitor inbox.
-    if not _agent_has_role(config, agent, "coder"):
+    agent_roles = _agent_roles(config, agent)
+    monitor_source_role = _monitor_source_role(agent_roles)
+    if not monitor_source_role:
         trace_hook(hook="monitor_ingest", agent=agent, decision="skip",
                    elapsed_ms=(_time.monotonic() - _t0) * 1000,
                    project_root=project_root, config=config,
-                   reason="not coder")
+                   reason="unsupported agent role")
         print(json.dumps(OK))
         return 0
 
-    cc_all = config.get("routing", {}).get("cc_all", [])
-    if not cc_all:
+    transcript_path = _resolve_transcript_path(project_root, payload)
+    session_id = _session_id_from_payload(payload)
+    if transcript_path is None:
         trace_hook(hook="monitor_ingest", agent=agent, decision="skip",
                    elapsed_ms=(_time.monotonic() - _t0) * 1000,
                    project_root=project_root, config=config,
-                   reason="no cc_all")
+                   reason="transcript unavailable")
         print(json.dumps(OK))
         return 0
 
-    summary = {
-        "ts": timestamp(config),
-        "from": agent,
-        "tool": tool_name,
-        "exit_code": exit_code,
-        "tool_input_summary": _truncate(tool_input, MAX_INPUT_SUMMARY),
-        "tool_response_summary": _truncate(tool_response, MAX_RESPONSE_SUMMARY),
-    }
-    body = json.dumps(summary, ensure_ascii=False, indent=2)
+    runtime_flags_dir = resolve_path("runtime_flags", project_root, config)
+    logs_dir = resolve_path("logs", project_root, config)
+    checkpoint_path = runtime_flags_dir / CHECKPOINT_FILE
+    checkpoints = load_checkpoint_state(checkpoint_path)
+    checkpoint = checkpoints.get(session_id, {}) if session_id else {}
+    offset = int(checkpoint.get("offset", 0)) if checkpoint else 0
 
-    fs = file_stamp(config)
-    safe_tool = tool_name.replace("/", "_").replace("\\", "_")
-    filename = f"{fs}-{agent}-{safe_tool}.json"
+    tail_result = tail_jsonl(transcript_path, offset=offset)
+    if session_id:
+        save_checkpoint_state(
+            checkpoint_path,
+            session_id=session_id,
+            transcript_path=transcript_path,
+            offset=tail_result.next_offset,
+        )
 
-    for recipient in cc_all:
-        if recipient == agent:
-            continue
-        inbox = dispatch_root / recipient / "inbox"
-        try:
-            inbox.mkdir(parents=True, exist_ok=True)
-            atomic_write(inbox / filename, body)
-        except OSError as exc:
-            _log_stderr(f"write to {recipient}/inbox failed: {exc}")
+    if not tail_result.records:
+        trace_hook(hook="monitor_ingest", agent=agent, decision="skip",
+                   elapsed_ms=(_time.monotonic() - _t0) * 1000,
+                   project_root=project_root, config=config,
+                   session_id=session_id, reason="no new session records")
+        print(json.dumps(OK))
+        return 0
+
+    trace_writer = DurableTraceWriter(logs_dir / TRACE_LOG_FILE)
+    router, route_state_path = _hydrate_router(project_root, config)
+
+    delivered_monitor_chunks: list[str] = []
+    recipients: set[str] = set()
+    source_priority = ""
+    route_reason = ""
+    delivered_events = 0
+
+    for raw_record in tail_result.records:
+        event = parse_session_record(raw_record)
+        trace_payload = event.to_trace_dict()
+        trace_payload["session_id"] = session_id or event.session_id
+        trace_payload["source_agent"] = agent
+        trace_payload["source_role"] = monitor_source_role
+        trace_payload["session_role"] = event.source_role
+        trace_payload["source_kind"] = "session_jsonl"
+        trace_payload["event_type"] = event.record_type
+        trace_payload["tool"] = tool_name
+        trace_payload["exit_code"] = exit_code
+
+        monitor_text = render_monitor_event(event)
+        trace_payload["monitor_text"] = monitor_text
+        trace_writer.write(trace_payload)
+
+        decision = router.route_event(
+            {
+                "session_id": trace_payload["session_id"],
+                "source_agent": agent,
+                "source_role": monitor_source_role,
+                "timestamp": trace_payload["timestamp"],
+                "record_type": trace_payload["record_type"],
+                "monitor_text": monitor_text,
+                "decision_messages": trace_payload.get("decision_messages", []),
+                "warning_messages": trace_payload.get("warning_messages", []),
+            }
+        )
+        if decision.deliver and monitor_text:
+            delivered_events += 1
+            delivered_monitor_chunks.append(monitor_text)
+            recipients.update(decision.recipients)
+            source_priority = decision.source_priority
+            route_reason = decision.reason
+
+    _save_route_state(route_state_path, last_primary_event_at=router.last_primary_event_at)
+
+    if delivered_events:
+        body = json.dumps(
+            {
+                "ts": timestamp(config),
+                "from": agent,
+                "tool": tool_name,
+                "exit_code": exit_code,
+                "session_id": session_id,
+                "source_priority": source_priority,
+                "route_reason": route_reason,
+                "event_count": delivered_events,
+                "trace_log": str(logs_dir / TRACE_LOG_FILE),
+                "monitor_text": _aggregate_monitor_text(delivered_monitor_chunks),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+
+        fs = file_stamp(config)
+        safe_tool = tool_name.replace("/", "_").replace("\\", "_")
+        filename = f"{fs}-{agent}-{safe_tool}.json"
+        for recipient in recipients:
+            if recipient == agent:
+                continue
+            inbox = dispatch_root / recipient / "inbox"
+            try:
+                inbox.mkdir(parents=True, exist_ok=True)
+                atomic_write(inbox / filename, body)
+            except OSError as exc:
+                _log_stderr(f"write to {recipient}/inbox failed: {exc}")
 
     trace_hook(hook="monitor_ingest", agent=agent, decision="allow",
                elapsed_ms=(_time.monotonic() - _t0) * 1000,
                project_root=project_root, config=config,
-               tool=tool_name, recipients=cc_all)
+               tool=tool_name, recipients=sorted(recipients),
+               event_count=len(tail_result.records), delivered_events=delivered_events,
+               session_id=session_id)
     print(json.dumps(OK))
     return 0
 

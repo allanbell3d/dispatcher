@@ -1,6 +1,6 @@
 # Dispatcher — Project State
 
-**Version:** v0.1.13
+**Version:** v0.1.14
 **Branch:** dev
 **Repo:** https://github.com/allanbell3d/dispatcher
 
@@ -16,7 +16,7 @@
 
 ## Current Phase
 
-**Foundation consolidation complete.** The dispatcher now has governed approved docs, reusable install/test artifacts, refreshed coordinated role/init packs, and an explicit watcher-plan ingest contract. The next layer can start launcher/control-plane work on top of these foundations without reopening the documentation split.
+**Foundation consolidation plus monitor/logging pipeline complete.** The dispatcher now has governed approved docs, reusable install/test artifacts, refreshed coordinated role/init packs, an explicit watcher-plan ingest contract, and a consolidated session-JSONL monitor/logging pipeline. The next layer can focus on live sprint proof and launcher/control-plane work without reopening the logging/monitor contract.
 
 ## What Works (verified locally)
 
@@ -33,6 +33,11 @@
 - `trace_hook()` honors configured Dubai time even when `ZoneInfo` is unavailable on Windows.
 - Dispatcher artifact seeds, fixtures, and examples now exist in `artifacts/` and are exercised by smoke/tests.
 - Watcher-plan normalization now has an explicit contract in `docs/PLAN_INGEST_CONTRACT.md`.
+- Claude session JSONL is now the source of truth for the live monitor/logging ingest path.
+- `monitor_ingest.py` tails transcripts incrementally with session-keyed byte-offset checkpoints and safe partial-line handling.
+- One parsed event flow now produces both durable trace output and a monitor-safe render from the same underlying session data.
+- Monitor routing treats `gate-ralph` as the primary live source and reviewer sessions as secondary inputs when Ralph is idle.
+- Durable monitor trace rows append to `.orchestrator/logs/monitor_trace.jsonl`, while rendered monitor payloads land in `dispatch/gate-monitor/inbox/`.
 - Coordinated gate role prompts, memory overlays, and startup notes are aligned to the current dispatch contract.
 - `validate.py`, `doctor.py`, and the pytest suite all run successfully in this repo.
 - Idle projects now validate cleanly, and strict sprint preflight is exposed separately through `scripts/sprint_ready.py`, `scripts/orchestratorctl.py sprint-ready`, and the launcher.
@@ -42,20 +47,18 @@
 1. **End-to-end sprint execution still needs Allan validation** — local tooling passes, but the full human-operated flow has not been confirmed on a live project.
 2. **Legacy historical docs still exist** — frozen specs and fossil launcher references remain for history, even though the live contract is now documented separately.
 3. **Windows PowerShell 5 is not a supported launcher shell** — `bin/orch_launcher.ps1` dry-run succeeds in `pwsh`; older `powershell.exe` lacks `ConvertFrom-Json -AsHashtable`.
-4. **Monitor/data-stream proof still needs a live sprint** — monitor ingest and fallback activity shipping are wired/documented, but Allan still needs to confirm the real mixed-agent flow under production use.
+4. **Mixed-agent live monitor proof still needs a live sprint** — the consolidated JSONL pipeline is covered locally, but Allan still needs to confirm the real reviewer-idle handoff flow under production use.
 
-## What Was Fixed In 0.1.13
+## What Was Fixed In 0.1.14
 
 | Priority | Fix | Scope |
 |----------|-----|-------|
-| 1 | Approved docs were consolidated behind a formal governance split and new entry-point guides | `docs/INDEX.md`, `docs/DOCS_GOVERNANCE.md`, `docs/OPERATOR_GUIDE.md`, `docs/DEVELOPER_GUIDE.md` |
-| 2 | Reusable install seeds, fixtures, and worked examples were added for dispatcher setup and tests | `artifacts/`, `tests/project_artifacts.py` |
-| 3 | Dispatch contract smoke coverage now boots from repo artifacts and uses repo-local scratch paths | `scripts/dispatch_contract_smoke.py` |
-| 4 | Watcher plan ingest is now governed by a written contract with stricter normalization validation | `docs/PLAN_INGEST_CONTRACT.md`, `scripts/normalize_plan.py`, `tests/test_plan_normalization.py` |
-| 5 | Backlog items and writer prompts were normalized to the ingest contract, including structured `deps` support | `.orchestrator/tasks/tasks.json`, `agents/reference_prompts/dispatcher-plan-writer.md` |
-| 6 | Coordinated role prompts were rebuilt around the current dispatch-first runtime contract | `agents/profiles/coordinated/`, `agents/protocols/coordinated/README.md` |
-| 7 | Gate memory notes and startup protocols were simplified to current repo reality | `memory/gate-*/` |
-| 8 | Draft role pack source material and execution inventories were staged under `docs_dev/` for future promotion | `docs_dev/roles/`, `docs_dev/reports/` |
+| 1 | Live monitor/logging ingest now tails Claude session JSONL instead of relying on hook payload summaries | `hooks/monitor_ingest.py`, `scripts/monitor_tail.py` |
+| 2 | Canonical parsing now preserves full session content and drives both durable trace and monitor-safe renders from one event flow | `scripts/monitor_parse.py`, `scripts/monitor_render.py` |
+| 3 | Durable trace logging and primary/secondary monitor routing are now explicit runtime components | `scripts/monitor_log.py`, `scripts/monitor_route.py` |
+| 4 | Default hook installation now wires the consolidated monitor pipeline for coder and reviewer roles | `scripts/install_hooks.py` |
+| 5 | Monitor/logging docs now describe the tested runtime truth, including checkpoints, trace output, and reviewer idle handoff behavior | `docs/LOGGING_MONITOR_CONTRACT.md`, `docs_dev/wave5/LOGGING_AND_DATA_STREAMS.md`, `docs_dev/wave5/MONITOR_AGENT_SETUP.md` |
+| 6 | Targeted regression coverage now proves the JSONL tailer, parser, renderers, router, durable trace writer, and dispatcher monitor integration | `tests/test_monitor_tail.py`, `tests/test_monitor_parse.py`, `tests/test_monitor_render.py`, `tests/test_monitor_route.py`, `tests/test_monitor_log.py`, `tests/test_monitor_integration.py`, `tests/test_monitor_stream.py` |
 
 ## Session Log
 
@@ -73,3 +76,4 @@
 | 2026-04-14 | Codex | Added reviewer activation presets/CLI, Codex reviewer profiles, wildcard hook install, launcher reviewer menu, Wave 5 docs, plan normalizer, and Dubizzle backlog cleanup | pending commit |
 | 2026-04-14 | Codex | Split install validation from sprint preflight with `sprint_ready.py`, launcher action, and operator doc updates | pending commit |
 | 2026-04-14 | Codex | Executed the dispatcher parallel plan pack across docs governance, artifact library, role/init refresh, and plan-ingest normalization; verified targeted pytest and dispatch smoke coverage | `daecd3c`→`06b18c6` |
+| 2026-04-14 | Codex | Consolidated dispatcher logging + monitor streaming around session JSONL tailing, canonical parse/render flow, durable trace logging, reviewer-secondary routing, and tested Wave 5 docs | pending commit |

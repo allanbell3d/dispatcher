@@ -68,20 +68,24 @@ def build_hook_inventory(project_root: Path, agent: str, config: dict) -> dict:
             )
         )
 
-    post_tool_use = [
-        hook_entry(
-            "Write|Edit|MultiEdit|Bash|Read|Glob|Grep",
-            hook_root / "activity_logger.py",
-            async_=True,
-        )
-    ]
-    if is_executor:
-        post_tool_use.extend([
+    agent_roles = {
+        str(role)
+        for agent_cfg in config.get("agents", [])
+        if agent_cfg.get("name") == agent
+        for role in (agent_cfg.get("roles") or [])
+    }
+
+    post_tool_use = []
+    if {"coder", "reviewer"} & agent_roles:
+        post_tool_use.append(
             hook_entry(
                 "Bash|Write|Edit|MultiEdit|Read|Grep|Glob",
                 hook_root / "monitor_ingest.py",
                 async_=True,
-            ),
+            )
+        )
+    if is_executor:
+        post_tool_use.extend([
             hook_entry(
                 "Bash",
                 hook_root / "dispatch_next_bug.py",

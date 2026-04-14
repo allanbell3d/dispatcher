@@ -145,10 +145,46 @@ def _wait_for(predicate, *, timeout: float = 10.0, interval: float = 0.25):
 def test_monitor_ingest_primary_stream_writes_json_to_monitor_inbox():
     project = _make_project("primary", fallback_stream=False)
     try:
+        transcript = project / "transcripts" / "gate-ralph.jsonl"
+        transcript.parent.mkdir(parents=True, exist_ok=True)
+        transcript.write_text(
+            "\n".join(
+                [
+                    json.dumps(
+                        {
+                            "type": "user",
+                            "sessionId": "sess-primary",
+                            "timestamp": "2026-04-14T10:00:00Z",
+                            "uuid": "u-1",
+                            "message": {"role": "user", "content": "show me the live monitor stream"},
+                        }
+                    ),
+                    json.dumps(
+                        {
+                            "type": "assistant",
+                            "sessionId": "sess-primary",
+                            "timestamp": "2026-04-14T10:00:01Z",
+                            "uuid": "a-1",
+                            "message": {
+                                "role": "assistant",
+                                "content": [
+                                    {"type": "text", "text": "Reading the trace output."},
+                                    {"type": "tool_use", "id": "toolu_1", "name": "Bash", "input": {"command": "echo hi"}},
+                                ],
+                            },
+                        }
+                    ),
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         result = _run_hook(
             MONITOR_INGEST,
             project,
             {
+                "session_id": "sess-primary",
+                "transcript_path": str(transcript),
                 "tool_name": "Bash",
                 "tool_input": {"command": "echo hi"},
                 "tool_response": {"output": "hi"},
@@ -162,6 +198,8 @@ def test_monitor_ingest_primary_stream_writes_json_to_monitor_inbox():
         assert payload["from"] == "gate-ralph"
         assert payload["tool"] == "Bash"
         assert payload["exit_code"] == 0
+        assert payload["source_priority"] == "primary"
+        assert "show me the live monitor stream" in payload["monitor_text"]
     finally:
         shutil.rmtree(project, ignore_errors=True)
 

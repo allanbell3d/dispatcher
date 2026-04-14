@@ -6,7 +6,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from monitor_parse import ParsedSessionEvent
+try:
+    from scripts.monitor_parse import ParsedSessionEvent
+except ImportError:  # pragma: no cover - direct script import path
+    from monitor_parse import ParsedSessionEvent
 
 
 _SUPPRESSED_RECORD_TYPES = {"file-history-snapshot"}

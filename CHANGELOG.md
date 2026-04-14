@@ -5,7 +5,7 @@ Extracted from the Advert repo commit history (2026-04-10 to 2026-04-13).
 
 ---
 
-## Known Issues (as of 0.1.13)
+## Known Issues (as of 0.1.14)
 
 Local blockers from the 14-finding review are addressed. Remaining risk is integration proof, not known broken core behavior:
 
@@ -14,7 +14,24 @@ Local blockers from the 14-finding review are addressed. Remaining risk is integ
 | 1 | Full human-operated sprint flow still needs Allan confirmation on a real project | MEDIUM |
 | 2 | Historical frozen docs still mention legacy paths and are intentionally preserved for audit context | LOW |
 | 3 | `bin/orch_launcher.ps1` should be run with `pwsh`, not Windows PowerShell 5 | LOW |
-| 4 | Monitor/data-stream proof still needs Allan confirmation during a live Wave 5 sprint | MEDIUM |
+| 4 | The mixed-agent idle handoff still needs Allan confirmation during a live Wave 5 sprint, even though the consolidated monitor pipeline now passes local integration coverage | MEDIUM |
+
+---
+
+## [0.1.14] -- 2026-04-14 (session-jsonl monitor pipeline)
+
+### Added
+- `docs/LOGGING_MONITOR_CONTRACT.md` as the concrete contract for the consolidated logging and monitor event pipeline.
+- `scripts/monitor_tail.py`, `scripts/monitor_parse.py`, `scripts/monitor_render.py`, `scripts/monitor_route.py`, and `scripts/monitor_log.py` for checkpointed session tailing, canonical parsing, dual rendering, routing, and durable trace writing.
+- Targeted monitor/logging coverage in `tests/test_monitor_tail.py`, `tests/test_monitor_parse.py`, `tests/test_monitor_render.py`, `tests/test_monitor_route.py`, `tests/test_monitor_log.py`, and `tests/test_monitor_integration.py`.
+
+### Changed
+- `hooks/monitor_ingest.py` now treats Claude session JSONL as the source of truth, tails incrementally with checkpoint tracking, renders trace and monitor output from the same parsed event flow, and writes durable trace rows to `.orchestrator/logs/monitor_trace.jsonl`.
+- `scripts/install_hooks.py` now installs the consolidated monitor pipeline for coder and reviewer roles, while keeping `activity_logger.py` available as a legacy/manual path instead of the default live stream.
+- Wave 5 monitor docs now reflect the tested behavior for session transcripts, monitor payloads, durable trace output, and reviewer-as-secondary routing.
+
+### Fixed
+- `scripts/monitor_render.py` now imports cleanly both as `scripts.monitor_render` and when executed directly in script-style contexts.
 
 ---
 

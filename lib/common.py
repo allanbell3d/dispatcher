@@ -2,7 +2,7 @@
 """Dispatcher orchestrator — shared library."""
 from __future__ import annotations
 
-__version__ = "0.1.11"
+__version__ = "0.1.14"
 
 import hashlib
 import json
