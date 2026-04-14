@@ -1,5 +1,7 @@
 # CLI Commands
 
+Start with `docs/OPERATOR_GUIDE.md` for the full operator flow. This file is the short command reference.
+
 All commands run from the repo root. Python commands require the engine root on `sys.path`.
 
 Primary launcher: `bin/orch_launcher.ps1`. The older `bin/launch.ps1` and `bin/launch.sh` scripts are legacy fossils.

@@ -1,5 +1,7 @@
 # Quick Start
 
+Start with `docs/OPERATOR_GUIDE.md` for the full operator path. This file is the deployment/setup checklist.
+
 ## Prerequisites
 
 - Python 3.10+
@@ -83,8 +85,8 @@ The watcher handles everything automatically:
 Manual intervention:
 - **Status:** launcher dashboard or `python scripts/orchestratorctl.py status .`
 - **Pause:** launcher menu or write `.flag` halt files to `.orchestrator/halts/`
-- **Resume:** launcher menu or `python scripts/orchestratorctl.py resume <task_id> .`
-- **Override:** `python scripts/orchestratorctl.py override <task_id> .` (emergency gate bypass, audit logged)
+- **Resume:** launcher menu or `python scripts/orchestratorctl.py resume . --agent gate-ralph [--refan]`
+- **Override:** `python scripts/orchestratorctl.py override . --task TASK-123 --verdict approved --reason "operator override"` (emergency gate bypass, audit logged)
 - **Stop:** create `.orchestrator/runtime_flags/STOP`
 
 ## 7. Logs
