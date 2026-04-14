@@ -1,0 +1,10 @@
+{
+  "task_id": "TASK-001",
+  "title": "Describe the task",
+  "acceptance_criteria": [
+    "List a concrete, testable acceptance criterion"
+  ],
+  "reference_paths": [
+    "src/example.py"
+  ]
+}

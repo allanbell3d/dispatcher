@@ -5,7 +5,7 @@ Extracted from the Advert repo commit history (2026-04-10 to 2026-04-13).
 
 ---
 
-## Known Issues (as of 0.1.12)
+## Known Issues (as of 0.1.13)
 
 Local blockers from the 14-finding review are addressed. Remaining risk is integration proof, not known broken core behavior:
 
@@ -15,6 +15,24 @@ Local blockers from the 14-finding review are addressed. Remaining risk is integ
 | 2 | Historical frozen docs still mention legacy paths and are intentionally preserved for audit context | LOW |
 | 3 | `bin/orch_launcher.ps1` should be run with `pwsh`, not Windows PowerShell 5 | LOW |
 | 4 | Monitor/data-stream proof still needs Allan confirmation during a live Wave 5 sprint | MEDIUM |
+
+---
+
+## [0.1.13] -- 2026-04-14 (dispatcher foundation pack)
+
+### Added
+- Approved documentation governance and entry-point guides in `docs/`, including `docs/INDEX.md`, `docs/DOCS_GOVERNANCE.md`, `docs/OPERATOR_GUIDE.md`, and `docs/DEVELOPER_GUIDE.md`.
+- Reusable dispatcher artifact library under `artifacts/` for install seeds, fixtures, and operator-facing examples.
+- `docs/PLAN_INGEST_CONTRACT.md` as the canonical watcher-ingestible JSON contract.
+- Draft role-pack contract, role drafts, and execution inventories under `docs_dev/`.
+- Focused regression coverage for plan normalization plus reusable test artifact helpers in `tests/project_artifacts.py`.
+
+### Changed
+- `scripts/dispatch_contract_smoke.py` now boots from checked-in artifacts and uses repo-local scratch space for safer smoke runs.
+- `scripts/normalize_plan.py` now validates placeholders and optional fields more strictly, including explicit support for `deps`.
+- `.orchestrator/tasks/tasks.json` and `agents/reference_prompts/dispatcher-plan-writer.md` now align with the documented ingest contract.
+- Coordinated role prompts, memory overlays, and startup notes were rebuilt around the current dispatch-first runtime contract.
+- Top-level operator docs now consistently preserve the `docs/` approved versus `docs_dev/` draft split.
 
 ---
 

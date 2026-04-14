@@ -1,0 +1,7 @@
+{
+  "task_id": "TASK-BAD-001",
+  "title": "Missing acceptance criteria",
+  "reference_paths": [
+    "src/example.py"
+  ]
+}

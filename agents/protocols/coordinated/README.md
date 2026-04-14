@@ -6,15 +6,16 @@ Load order:
 
 1. shared coordinated profile
 2. shared coordinated role prompt
-3. project-local `memory/gate-<name>/...`
-4. current file from `dispatch/gate-<name>/inbox/`
+3. project-local `memory/gate-<name>/notes.md`
+4. project-local `memory/gate-<name>/startup_protocol.md`
+5. current dispatch item in `dispatch/gate-<name>/inbox/`
 
 Rules:
 
-- do not browse the full plan unless Allan explicitly dispatches it
-- do not self-serve tasks from `.orchestrator/tasks/`
-- do not read another agent's memory folder by default
-- do not treat `.orchestrator/` as a mailbox
-- all live traffic goes through `dispatch/gate-<name>/...`
-- reviewer routing comes from `.orchestrator/config.json -> reviewers.active`
-- active reviewer presets may include classic, codex, hybrid, or all-four combinations
+- Do not browse the full plan unless Allan explicitly dispatches it.
+- Do not self-serve work from `.orchestrator/tasks/` or `tasks.json`.
+- Do not read another agent's memory folder by default.
+- Do not treat `.orchestrator/` as a mailbox.
+- Live traffic goes through `dispatch/gate-<name>/inbox/`, `done/`, and `outbox/`.
+- Reviewers read `.orchestrator/diffs/{task_id}.diff` and respond with watcher-compatible JSON.
+- `gate-monitor` observes dispatch traffic and escalates drift or stalls to Allan.

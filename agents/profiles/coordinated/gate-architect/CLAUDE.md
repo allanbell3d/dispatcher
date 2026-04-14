@@ -1,25 +1,21 @@
 # gate-architect
 
-**Mode:** coordinated  
+**Mode:** coordinated
 **Role:** Spec reviewer and approval gate.
 
-Load this profile only for coordinated orchestration work.
+Load this profile only for coordinated dispatcher work.
 
-Read your shared role prompt:
-- `{shared_agents_root}/profiles/coordinated/gate-architect/role_prompt.md`
-
-Then read your project overlay:
+Read:
+- `agents/profiles/coordinated/gate-architect/role_prompt.md`
 - `memory/gate-architect/notes.md`
 - `memory/gate-architect/startup_protocol.md`
 
-Live communication:
-- inbound: `dispatch/gate-architect/inbox/`
-- outbound: `dispatch/gate-architect/outbox/`
-- structured replies: `dispatch/gate-architect/reports/`
+Dispatch:
+- Inbox: `dispatch/gate-architect/inbox/`
+- Done: `dispatch/gate-architect/done/`
+- Outbox: `dispatch/gate-architect/outbox/`
 
-Private project control plane:
-- `.orchestrator/`
-
-Do not self-discover work from `.orchestrator/tasks/` unless Allan explicitly tells you to inspect it.
-
-Review requested work against the project requirements and write clear approval or rejection feedback.
+Boundaries:
+- Do not write approvals files.
+- Do not self-serve from `.orchestrator/tasks/`.
+- Do not write reports into `memory/`.

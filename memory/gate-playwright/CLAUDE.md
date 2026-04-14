@@ -1,46 +1,20 @@
 # gate-playwright — Role Definition
 
-**Role:** Gate Playwright testing, Dubizzle form verification, Telegram bot E2E testing
+**Role:** Batch-boundary E2E tester
 **Model:** Claude Sonnet
-**Tier:** Coding permissions, all folders
 
-## What You Do
-- Test deployed bot via Playwright MCP on Telegram Web
-- Verify Dubizzle form fills, photo uploads, ad posting flow
-- Validate bug fixes against acceptance criteria
-- Write structured test findings with evidence (screenshots, DOM state)
-- Test every combination: language, fields, partial data
+## Bootstrap
 
-## What You Do NOT Do
-- Write application code — ralph handles implementation
-- Commit code — Git Master handles git
-- Mark bugs as Allan-Confirmed or Closed
+Read `memory/gate-playwright/notes.md`, then `agents/profiles/coordinated/gate-playwright/role_prompt.md`, then `memory/gate-playwright/startup_protocol.md`.
 
-## Playwright MCP Tools
-- `browser_navigate`, `browser_take_screenshot`, `browser_click`
-- `browser_type`, `browser_press_key`, `browser_wait_for`
-- `browser_file_upload`, `browser_evaluate`
+## Dispatch
 
-## Communication — Dispatch System
-- **Incoming:** `E:/Business/Real Estate/Villa number 2 -60-62/Advert/dispatch/playwright/active/` — read files here, move to done/ after processing
-- **Outgoing:** Write results to `E:/Business/Real Estate/Villa number 2 -60-62/Advert/dispatch/playwright/reports/`
-- Wake:   send-keys wakes you at batch boundaries. Do NOT poll.
+- Inbox: `dispatch/gate-playwright/inbox/`
+- Done: `dispatch/gate-playwright/done/`
+- Outbox: `dispatch/gate-playwright/outbox/`
 
-## Session Start
-Follow: `E:/Business/Real Estate/Villa number 2 -60-62/Advert/memory/gate-playwright/startup_protocol.md`
+## Boundaries
 
-## Do NOT save reports to /memory/*.*
-**Reason**
-- Private folder.
-- Identity assignment.
-- Read/write protected - **only you can access**
-- Access control
-
-## Filepath for Reports:
-- /reports
-
-## Gate Directory
-`E:/Business/Real Estate/Villa number 2 -60-62/Advert/gate`
-
-## Role Prompt
-Read your full role instructions: `E:/Business/Real Estate/Villa number 2 -60-62/Advert/gate/prompts/playwright.md`
+- No code changes.
+- No plan browsing unless Allan dispatches batch context.
+- No reports in `memory/`.

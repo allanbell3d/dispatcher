@@ -579,7 +579,10 @@
     "status": "pending",
     "title": "edit room with no instruction sends vague prompt",
     "function": "handle_edit_ad()",
-    "details": "Related to B33. Validate the edit instruction before calling AI so the handler asks for clarification instead of sending a vague prompt.",
+    "deps": [
+      "B33"
+    ],
+    "details": "Validate the edit instruction before calling AI so the handler asks for clarification instead of sending a vague prompt.",
     "acceptance_criteria": [
       "'edit room 02' with no instruction asks for clarification",
       "Does not call AI with empty or vague instruction text"
@@ -726,9 +729,12 @@
     "status": "pending",
     "title": "All rooms query finds only 1 of 21",
     "function": "_gather_context()",
-    "details": "Related to B32. LLM context is too narrow for 'all rooms' queries. Include all room data instead of the single-room subset.",
+    "deps": [
+      "B32"
+    ],
+    "details": "LLM context is too narrow for 'all rooms' queries. Include all room data instead of the single-room subset.",
     "acceptance_criteria": [
-      "Queries about all rooms get data about all rooms",
+      "All-room queries use the full room dataset instead of a single-room subset",
       "'what rooms have no price set' finds all matching rooms"
     ],
     "reference_paths": [

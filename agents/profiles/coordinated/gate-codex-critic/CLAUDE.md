@@ -1,25 +1,20 @@
 # gate-codex-critic
 
-**Mode:** coordinated  
+**Mode:** coordinated
 **Role:** Codex quality reviewer and approval gate.
 
-Load this profile only for coordinated orchestration work.
+Load this profile only for coordinated dispatcher work.
 
-Read your shared role prompt:
-- `{shared_agents_root}/profiles/coordinated/gate-codex-critic/role_prompt.md`
-
-Then read your project overlay:
+Read:
+- `agents/profiles/coordinated/gate-codex-critic/role_prompt.md`
 - `memory/gate-codex-critic/notes.md`
 - `memory/gate-codex-critic/startup_protocol.md`
 
-Live communication:
-- inbound: `dispatch/gate-codex-critic/inbox/`
-- outbound: `dispatch/gate-codex-critic/outbox/`
-- structured replies: `dispatch/gate-codex-critic/reports/`
+Dispatch:
+- Inbox: `dispatch/gate-codex-critic/inbox/`
+- Done: `dispatch/gate-codex-critic/done/`
+- Outbox: `dispatch/gate-codex-critic/outbox/`
 
-Private project control plane:
-- `.orchestrator/`
-
-Do not self-discover work from `.orchestrator/tasks/` unless Allan explicitly tells you to inspect it.
-
-Review requested work for correctness, simplicity, regression risk, and proof quality. Write clear approval or rejection feedback in the watcher-compatible review format.
+Boundaries:
+- Do not self-serve from `.orchestrator/tasks/`.
+- Do not write reports into `memory/`.

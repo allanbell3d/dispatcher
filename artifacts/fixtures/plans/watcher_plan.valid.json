@@ -1,0 +1,30 @@
+{
+  "plan_id": "fixture-valid-plan",
+  "title": "Fixture Valid Plan",
+  "tasks": [
+    {
+      "task_id": "F1",
+      "title": "Create the first fixture task",
+      "acceptance_criteria": [
+        "First fixture task is valid"
+      ],
+      "reference_paths": [
+        "src/example.py"
+      ],
+      "deps": []
+    },
+    {
+      "task_id": "F2",
+      "title": "Create the second fixture task",
+      "acceptance_criteria": [
+        "Second fixture task is valid"
+      ],
+      "reference_paths": [
+        "src/example.py"
+      ],
+      "deps": [
+        "F1"
+      ]
+    }
+  ]
+}

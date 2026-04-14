@@ -1,0 +1,10 @@
+{
+  "task_id": "TASK-001",
+  "title": "Prepared sprint task",
+  "acceptance_criteria": [
+    "Criterion 1"
+  ],
+  "reference_paths": [
+    "src/example.py"
+  ]
+}

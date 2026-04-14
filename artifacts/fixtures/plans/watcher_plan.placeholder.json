@@ -1,0 +1,16 @@
+{
+  "plan_id": "fixture-placeholder-plan",
+  "title": "Fixture Placeholder Plan",
+  "tasks": [
+    {
+      "task_id": "P1",
+      "title": "Placeholder token in acceptance criteria",
+      "acceptance_criteria": [
+        "TODO later"
+      ],
+      "reference_paths": [
+        "src/example.py"
+      ]
+    }
+  ]
+}

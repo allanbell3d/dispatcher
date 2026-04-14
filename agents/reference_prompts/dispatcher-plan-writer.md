@@ -2,6 +2,8 @@
 
 Write watcher-ingestible plan JSON for `.orchestrator/plans/`.
 
+For the approved ingest contract, follow [docs/PLAN_INGEST_CONTRACT.md](../../docs/PLAN_INGEST_CONTRACT.md).
+
 ## Output Rules
 
 - Top-level keys:
@@ -16,6 +18,7 @@ Write watcher-ingestible plan JSON for `.orchestrator/plans/`.
   - `reference_paths`
 - `acceptance_criteria` must be a non-empty list of concrete testable statements
 - `reference_paths` must be a non-empty list of repo-relative paths
+- `deps` is supported as optional structured dependency metadata when one task depends on another
 - Do not use placeholder text such as `TODO`, `TBD`, `FIXME`, `XXX`, or `PLACEHOLDER`
 
 ## Good Example
@@ -35,6 +38,9 @@ Write watcher-ingestible plan JSON for `.orchestrator/plans/`.
       "reference_paths": [
         ".orchestrator/config.json",
         "schemas/config_schema.json"
+      ],
+      "deps": [
+        "R0"
       ]
     }
   ]

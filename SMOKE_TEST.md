@@ -1,5 +1,7 @@
 # Smoke Test Guide
 
+Start with `docs/OPERATOR_GUIDE.md` for the current operator path. This file is the proof/troubleshooting checklist.
+
 ## Automated Smoke
 
 ```bash
@@ -33,7 +35,7 @@ Verify: `.claude/settings.local.json` contains orchestrator hook entries for all
 ### 3. Launch
 
 ```powershell
-powershell -File bin/orch_launcher.ps1
+pwsh -NoProfile -File bin/orch_launcher.ps1
 ```
 
 Select agents. Verify the status dashboard shows agents and watcher as running.

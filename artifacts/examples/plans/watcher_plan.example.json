@@ -1,0 +1,33 @@
+{
+  "plan_id": "dispatcher-example-plan",
+  "title": "Dispatcher Example Plan",
+  "description": "Small watcher-ingestible example that shows the current contract shape.",
+  "tasks": [
+    {
+      "task_id": "EX-001",
+      "title": "Create the approved operator guide",
+      "acceptance_criteria": [
+        "The repo has one approved operator landing page"
+      ],
+      "reference_paths": [
+        "docs/OPERATOR_GUIDE.md"
+      ],
+      "deps": []
+    },
+    {
+      "task_id": "EX-002",
+      "title": "Link supporting docs back to the guide",
+      "acceptance_criteria": [
+        "Supporting docs point back to the approved operator guide"
+      ],
+      "reference_paths": [
+        "COMMANDS.md",
+        "QUICKSTART.md",
+        "SMOKE_TEST.md"
+      ],
+      "deps": [
+        "EX-001"
+      ]
+    }
+  ]
+}
