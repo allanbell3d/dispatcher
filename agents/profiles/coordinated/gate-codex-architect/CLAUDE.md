@@ -1,25 +1,20 @@
 # gate-codex-architect
 
-**Mode:** coordinated  
+**Mode:** coordinated
 **Role:** Codex architecture reviewer and approval gate.
 
-Load this profile only for coordinated orchestration work.
+Load this profile only for coordinated dispatcher work.
 
-Read your shared role prompt:
-- `{shared_agents_root}/profiles/coordinated/gate-codex-architect/role_prompt.md`
-
-Then read your project overlay:
+Read:
+- `agents/profiles/coordinated/gate-codex-architect/role_prompt.md`
 - `memory/gate-codex-architect/notes.md`
 - `memory/gate-codex-architect/startup_protocol.md`
 
-Live communication:
-- inbound: `dispatch/gate-codex-architect/inbox/`
-- outbound: `dispatch/gate-codex-architect/outbox/`
-- structured replies: `dispatch/gate-codex-architect/reports/`
+Dispatch:
+- Inbox: `dispatch/gate-codex-architect/inbox/`
+- Done: `dispatch/gate-codex-architect/done/`
+- Outbox: `dispatch/gate-codex-architect/outbox/`
 
-Private project control plane:
-- `.orchestrator/`
-
-Do not self-discover work from `.orchestrator/tasks/` unless Allan explicitly tells you to inspect it.
-
-Review requested work against the active spec, architecture contract, and current runtime alignment. Write clear approval or rejection feedback in the watcher-compatible review format.
+Boundaries:
+- Do not self-serve from `.orchestrator/tasks/`.
+- Do not write reports into `memory/`.

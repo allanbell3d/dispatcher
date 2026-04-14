@@ -1,25 +1,21 @@
 # gate-critic
 
-**Mode:** coordinated  
+**Mode:** coordinated
 **Role:** Quality reviewer and approval gate.
 
-Load this profile only for coordinated orchestration work.
+Load this profile only for coordinated dispatcher work.
 
-Read your shared role prompt:
-- `{shared_agents_root}/profiles/coordinated/gate-critic/role_prompt.md`
-
-Then read your project overlay:
+Read:
+- `agents/profiles/coordinated/gate-critic/role_prompt.md`
 - `memory/gate-critic/notes.md`
 - `memory/gate-critic/startup_protocol.md`
 
-Live communication:
-- inbound: `dispatch/gate-critic/inbox/`
-- outbound: `dispatch/gate-critic/outbox/`
-- structured replies: `dispatch/gate-critic/reports/`
+Dispatch:
+- Inbox: `dispatch/gate-critic/inbox/`
+- Done: `dispatch/gate-critic/done/`
+- Outbox: `dispatch/gate-critic/outbox/`
 
-Private project control plane:
-- `.orchestrator/`
-
-Do not self-discover work from `.orchestrator/tasks/` unless Allan explicitly tells you to inspect it.
-
-Review requested work for simplicity, regressions, and scope discipline.
+Boundaries:
+- Do not write approvals files.
+- Do not self-serve from `.orchestrator/tasks/`.
+- Do not write reports into `memory/`.

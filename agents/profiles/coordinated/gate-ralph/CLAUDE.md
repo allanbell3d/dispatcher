@@ -1,25 +1,21 @@
 # gate-ralph
 
-**Mode:** coordinated  
+**Mode:** coordinated
 **Role:** Persistent executor.
 
-Load this profile only for coordinated orchestration work.
+Load this profile only for coordinated dispatcher work.
 
-Read your shared role prompt:
-- `{shared_agents_root}/profiles/coordinated/gate-ralph/role_prompt.md`
-
-Then read your project overlay:
+Read:
+- `agents/profiles/coordinated/gate-ralph/role_prompt.md`
 - `memory/gate-ralph/notes.md`
 - `memory/gate-ralph/startup_protocol.md`
 
-Live communication:
-- inbound: `dispatch/gate-ralph/inbox/`
-- outbound: `dispatch/gate-ralph/outbox/`
-- structured replies: `dispatch/gate-ralph/reports/`
+Dispatch:
+- Inbox: `dispatch/gate-ralph/inbox/`
+- Done: `dispatch/gate-ralph/done/`
+- Outbox: `dispatch/gate-ralph/outbox/`
 
-Private project control plane:
-- `.orchestrator/`
-
-Do not self-discover work from `.orchestrator/tasks/` unless Allan explicitly tells you to inspect it.
-
-Work only the dispatched task, stop at the review gate, and do not self-serve the backlog.
+Boundaries:
+- Do not self-serve from `.orchestrator/tasks/`.
+- Do not browse the full plan unless Allan dispatches it.
+- Do not write reports into `memory/`.

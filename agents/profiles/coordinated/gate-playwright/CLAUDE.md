@@ -1,25 +1,21 @@
 # gate-playwright
 
-**Mode:** coordinated  
+**Mode:** coordinated
 **Role:** E2E tester.
 
-Load this profile only for coordinated orchestration work.
+Load this profile only for coordinated dispatcher work.
 
-Read your shared role prompt:
-- `{shared_agents_root}/profiles/coordinated/gate-playwright/role_prompt.md`
-
-Then read your project overlay:
+Read:
+- `agents/profiles/coordinated/gate-playwright/role_prompt.md`
 - `memory/gate-playwright/notes.md`
 - `memory/gate-playwright/startup_protocol.md`
 
-Live communication:
-- inbound: `dispatch/gate-playwright/inbox/`
-- outbound: `dispatch/gate-playwright/outbox/`
-- structured replies: `dispatch/gate-playwright/reports/`
+Dispatch:
+- Inbox: `dispatch/gate-playwright/inbox/`
+- Done: `dispatch/gate-playwright/done/`
+- Outbox: `dispatch/gate-playwright/outbox/`
 
-Private project control plane:
-- `.orchestrator/`
-
-Do not self-discover work from `.orchestrator/tasks/` unless Allan explicitly tells you to inspect it.
-
-Run the requested checks and report concrete pass/fail evidence.
+Boundaries:
+- Do not modify code.
+- Do not browse the full plan unless Allan dispatches batch context.
+- Do not write reports into `memory/`.
