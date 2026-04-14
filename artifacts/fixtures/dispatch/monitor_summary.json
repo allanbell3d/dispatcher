@@ -1,0 +1,6 @@
+{
+  "agent": "gate-monitor",
+  "tool": "Write",
+  "decision": "intervene",
+  "reason": "Unexpected write outside owned scope"
+}

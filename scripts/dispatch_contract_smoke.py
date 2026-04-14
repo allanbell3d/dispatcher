@@ -6,75 +6,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import json
+import shutil
 import subprocess
-import tempfile
 import time
+import uuid
 
-# Inline config fixture — no Project_Template dependency
-_INLINE_CONFIG = {
-    "project": "smoke-test",
-    "shared_roots": {
-        "orchestrator_primary": "W:/Claude_Library/orchestrator",
-        "orchestrator_fallback": "D:/IA/orchestrator",
-        "agents_primary": "W:/Claude_Library/agents",
-        "agents_fallback": "D:/IA/agents"
-    },
-    "paths": {
-        "state_root": ".orchestrator",
-        "dispatch_root": "dispatch",
-        "plans": ".orchestrator/plans",
-        "tasks": ".orchestrator/tasks",
-        "current_task": ".orchestrator/tasks/current_task.json",
-        "trackers": ".orchestrator/trackers.json",
-        "diffs": ".orchestrator/diffs",
-        "audit_log": ".orchestrator/audit.log",
-        "decision_trace": ".orchestrator/logs/decision_trace.log",
-        "merged_verdicts": ".orchestrator/merged_verdicts",
-        "halts": ".orchestrator/halts",
-        "runtime_flags": ".orchestrator/runtime_flags",
-        "playwright_tests": "tests/e2e",
-        "logs": ".orchestrator/logs",
-        "approvals_source": "outbox",
-        "halt_mode": "flag_file"
-    },
-    "wake": {
-        "mechanism": "tmux",
-        "first_attempt_seconds": 2,
-        "retry_interval_seconds": 30,
-        "max_retries": 5,
-        "monitor_pulse_seconds": 10,
-        "idle_threshold_seconds": 120,
-        "liveness_check_interval_seconds": 30
-    },
-    "session": {
-        "require_ready_files": False,
-        "halt_between_batches": False,
-        "session_prefix": "gate-"
-    },
-    "agents": [
-        {"name": "gate-ralph", "profile": "gate-ralph", "executor": True, "roles": ["coder"]},
-        {"name": "gate-architect", "profile": "gate-architect", "executor": False, "roles": ["reviewer"]},
-        {"name": "gate-monitor", "profile": "gate-monitor", "executor": False, "roles": ["monitor"]}
-    ],
-    "routing": {
-        "cc_all": ["gate-monitor"],
-        "review_requests_to": ["gate-architect"],
-        "escalation_target": "allan"
-    },
-    "gate": {
-        "require_approvals_from": ["gate-architect"],
-        "consensus_rule": "unanimous",
-        "max_rework_rounds": 3,
-        "protected_branches": ["dev", "main"]
-    },
-    "fan_in": {
-        "review": {
-            "required": ["gate-architect"],
-            "timeout_seconds": 1200,
-            "on_timeout": "escalate_allan"
-        }
-    }
-}
+ARTIFACTS = ROOT / "artifacts"
 
 
 def write(path: Path, content: str):
@@ -92,9 +29,45 @@ def wait_for(glob_path: Path, timeout: float = 10.0) -> list[Path]:
     return []
 
 
+def load_json(relative: str) -> dict | list:
+    return json.loads((ARTIFACTS / relative).read_text(encoding="utf-8"))
+
+
+def load_text(relative: str) -> str:
+    return (ARTIFACTS / relative).read_text(encoding="utf-8")
+
+
 def build_fixture(root: Path) -> None:
-    """Build a minimal project fixture inline — no Project_Template required."""
-    cfg = _INLINE_CONFIG
+    """Build a minimal project fixture from the canonical artifact library."""
+    cfg = load_json("install/config/config.seed.json")
+    cfg["project"] = "smoke-test"
+    cfg["shared_roots"] = {
+        "orchestrator_primary": str(ROOT),
+        "orchestrator_fallback": str(ROOT),
+        "agents_primary": str(ROOT),
+        "agents_fallback": str(ROOT),
+    }
+    cfg["wake"]["mechanism"] = "tmux"
+    cfg["wake"]["first_attempt_seconds"] = 2
+    cfg["wake"]["max_retries"] = 5
+    cfg["wake"]["monitor_pulse_seconds"] = 10
+    cfg["session"]["halt_between_batches"] = False
+    cfg["agents"] = [
+        {"name": "gate-ralph", "profile": "gate-ralph", "executor": True, "roles": ["coder"]},
+        {"name": "gate-architect", "profile": "gate-architect", "executor": False, "roles": ["reviewer"]},
+        {"name": "gate-monitor", "profile": "gate-monitor", "executor": False, "roles": ["monitor"]},
+    ]
+    cfg["reviewers"]["available"] = ["gate-architect"]
+    cfg["reviewers"]["active"] = ["gate-architect"]
+    cfg["reviewers"]["presets"] = {"classic": ["gate-architect"]}
+    cfg["routing"]["review_requests_to"] = ["gate-architect"]
+    cfg["routing"]["on_batch_complete"] = []
+    cfg["routing"]["on_test_failure"] = ["gate-ralph"]
+    cfg["routing"]["on_test_passed"] = ["gate-ralph"]
+    cfg["routing"]["on_stop"] = ["gate-monitor"]
+    cfg["gate"]["require_approvals_from"] = ["gate-architect"]
+    cfg["fan_in"]["review"]["required"] = ["gate-architect"]
+    cfg["fan_in"]["review"]["timeout_seconds"] = 1200
 
     # Write config
     config_path = root / ".orchestrator" / "config.json"
@@ -116,10 +89,11 @@ def build_fixture(root: Path) -> None:
 def main() -> int:
     tool_root = Path(__file__).resolve().parent.parent
     watcher = tool_root / "scripts" / "watcher.py"
+    scratch_root = ROOT.parents[1] if ROOT.parent.name == ".worktrees" else ROOT
+    scratch = scratch_root / ".pytest_tmp_dispatch_contract_smoke" / f"run_{uuid.uuid4().hex}"
+    root = scratch / "project"
 
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp) / "project"
-
+    try:
         # Build fixture inline — no shutil.copytree from Project_Template
         build_fixture(root)
 
@@ -145,13 +119,10 @@ def main() -> int:
             _coder = _coders[0]
             _r0 = _reviewers[0]
 
-            review = (
-                f"FROM: {_coder}\n"
-                f"TO: {_r0}\n"
-                f"TYPE: review_request\n"
-                f"TASK_ID: SMOKE-1\n"
-                f"---\n"
-                f"Review this diff.\n"
+            review = load_text("fixtures/dispatch/review_request.template.md").format(
+                coder=_coder,
+                reviewer=_r0,
+                task_id="SMOKE-1",
             )
             write(root / "dispatch" / _coder / "outbox" / "review.md", review)
 
@@ -160,7 +131,11 @@ def main() -> int:
 
             write(
                 root / "dispatch" / _r0 / "reports" / f"{_r0}.md",
-                f"FROM: {_r0}\nTO: {_coder}\nTYPE: review_response\nTASK_ID: SMOKE-1\nVERDICT: approved\n---\nApproved.\n"
+                load_text("fixtures/dispatch/review_response.approved.template.md").format(
+                    reviewer=_r0,
+                    coder=_coder,
+                    task_id="SMOKE-1",
+                ),
             )
 
             if not wait_for(root / "dispatch" / _coder / "inbox" / "*merged*.md"):
@@ -175,6 +150,8 @@ def main() -> int:
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.wait(timeout=5)
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
 
 
 if __name__ == "__main__":

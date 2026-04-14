@@ -1,0 +1,26 @@
+{
+  "plan_id": "fixture-duplicate-task-id",
+  "title": "Fixture Duplicate Task Id",
+  "tasks": [
+    {
+      "task_id": "D1",
+      "title": "First duplicate",
+      "acceptance_criteria": [
+        "Duplicate task id fixture should fail"
+      ],
+      "reference_paths": [
+        "src/example.py"
+      ]
+    },
+    {
+      "task_id": "D1",
+      "title": "Second duplicate",
+      "acceptance_criteria": [
+        "Duplicate task id fixture should fail"
+      ],
+      "reference_paths": [
+        "src/example.py"
+      ]
+    }
+  ]
+}
