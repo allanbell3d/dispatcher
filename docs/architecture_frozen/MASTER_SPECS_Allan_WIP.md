@@ -1,5 +1,10 @@
 Referenced files located at `\ref_docs`
 
+## Validity
+
+** This document is valid and active **
+
+
 ## Architecture decisions (locked)
 
 | Decision | Value | Rationale |

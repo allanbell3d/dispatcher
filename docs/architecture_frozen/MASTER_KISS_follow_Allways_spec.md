@@ -4,6 +4,10 @@
 **Scope:** Every function, component, and file in any project
 **Method:** Each function must prove it is irreducible, not absorbable, and justified by a requirement
 
+## Validity
+
+** This document is valid and frozen **
+
 ---
 
 ## Survival test — 4 questions per function

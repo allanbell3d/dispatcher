@@ -7,6 +7,10 @@
 **Scope:** Any project building Claude Code hooks — orchestrator, dispatch engine, or otherwise  
 **Status:** Living document
 
+## Validity
+
+** This document is valid and active **
+
 ---
 
 ## Purpose

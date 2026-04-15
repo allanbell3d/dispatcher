@@ -1,11 +1,16 @@
 # Orchestrator — Round 1 Master Spec
 
 **Owner:** Allan
-**Written by:** gate-architect (Opus 4.6)
+**Written by:** gate-architect
 **Date:** 2026-04-11, updated 2026-04-12
 **Version:** v2.4
 **Updated:** 2026-04-13 — merged insights from 5 critic runs, 4 remediation rounds, Wave 2+3 reviews
 **Sources:** Allan voice notes (2026-04-10/11), Remarks.md, MASTER_SPECS_Allan_WIP.md, MASTER_KISS_follow_Allways_spec.md, HOOK_SYSTEM_ORCHESTRATOR_GUIDE.md, orchestrator_finish_pass_prd.md, IMPROVEMENT_IDEAS_hook-master, IMPLEMENTATION_STATUS_SUMMARY, Wave 1 reviews, allan_notepad.md session transcript
+
+## Validity
+
+** This document is valid and frozen **
+
 
 ---
 

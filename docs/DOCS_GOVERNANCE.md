@@ -4,7 +4,7 @@
 
 This repo uses a deliberate split:
 
-- `docs/` holds approved, committed operator and developer truth.
+- `docs/` holds approved, committed operator and developer truth. **Active source of trought**
 - `docs_dev/` holds draft, staging, review, planning, and execution-support material.
 
 The goal is to keep current guidance easy to find without deleting the history and working notes that explain how the repo got here.

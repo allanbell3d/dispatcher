@@ -65,7 +65,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\dispatch_gate.py\""
+            "command": "python \"W:\\Claude_Library\\orchestrator\\hooks\\dispatch_gate.py\""
           }
         ]
       },
@@ -74,7 +74,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\inbox_access_guard.py\""
+            "command": "python \"W:\\Claude_Library\\orchestrator\\hooks\\inbox_access_guard.py\""
           }
         ]
       },
@@ -83,7 +83,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\check_gate.py\""
+            "command": "python \"W:\\Claude_Library\\orchestrator\\hooks\\check_gate.py\""
           }
         ],
         "if": "Bash(git commit *)"
@@ -103,7 +103,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\activity_logger.py\"",
+            "command": "python \"W:\\Claude_Library\\orchestrator\\hooks\\activity_logger.py\"",
             "async": true
           }
         ]
@@ -113,7 +113,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\monitor_ingest.py\"",
+            "command": "python \"W:\\Claude_Library\\orchestrator\\hooks\\monitor_ingest.py\"",
             "async": true
           }
         ]
@@ -123,7 +123,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\dispatch_next_bug.py\""
+            "command": "python \"W:\\Claude_Library\\orchestrator\\hooks\\dispatch_next_bug.py\""
           }
         ],
         "if": "Bash(git commit *)"
@@ -141,92 +141,20 @@
     ],
     "FileChanged": [
       {
-        "matcher": "dispatch/gate-ralph/inbox/*.md",
+        "matcher": "dispatch/*/inbox/*.md",
         "hooks": [
           {
             "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\on_file_message.py\""
+            "command": "python \"W:\\Claude_Library\\orchestrator\\hooks\\on_file_message.py\""
           }
         ]
       },
       {
-        "matcher": "dispatch/gate-ralph/inbox/*.json",
+        "matcher": "dispatch/*/inbox/*.json",
         "hooks": [
           {
             "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\on_file_message.py\""
-          }
-        ]
-      },
-      {
-        "matcher": "dispatch/gate-architect/inbox/*.md",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\on_file_message.py\""
-          }
-        ]
-      },
-      {
-        "matcher": "dispatch/gate-architect/inbox/*.json",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\on_file_message.py\""
-          }
-        ]
-      },
-      {
-        "matcher": "dispatch/gate-critic/inbox/*.md",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\on_file_message.py\""
-          }
-        ]
-      },
-      {
-        "matcher": "dispatch/gate-critic/inbox/*.json",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\on_file_message.py\""
-          }
-        ]
-      },
-      {
-        "matcher": "dispatch/gate-monitor/inbox/*.md",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\on_file_message.py\""
-          }
-        ]
-      },
-      {
-        "matcher": "dispatch/gate-monitor/inbox/*.json",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\on_file_message.py\""
-          }
-        ]
-      },
-      {
-        "matcher": "dispatch/gate-playwright/inbox/*.md",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\on_file_message.py\""
-          }
-        ]
-      },
-      {
-        "matcher": "dispatch/gate-playwright/inbox/*.json",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\on_file_message.py\""
+            "command": "python \"W:\\Claude_Library\\orchestrator\\hooks\\on_file_message.py\""
           }
         ]
       }
@@ -236,7 +164,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"\\\\Synology1621\\NAS SSD\\Claude_Library\\orchestrator\\hooks\\stop_notify.py\""
+            "command": "python \"W:\\Claude_Library\\orchestrator\\hooks\\stop_notify.py\""
           }
         ]
       }
