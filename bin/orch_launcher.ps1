@@ -396,6 +396,220 @@ function Escape-PSString([string]$Value) {
     return $Value.Replace("'", "''")
 }
 
+function Get-SessionMapPath {
+    return (Join-Path $RuntimeFlagsDir "session_names.json")
+}
+
+function Load-SessionMap {
+    $path = Get-SessionMapPath
+    if (-not (Test-Path $path)) { return @{} }
+    try {
+        return Get-Content $path -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
+    } catch {
+        return @{}
+    }
+}
+
+function Save-SessionMap([hashtable]$Map) {
+    if (-not (Test-Path $RuntimeFlagsDir)) {
+        New-Item -ItemType Directory -Path $RuntimeFlagsDir -Force | Out-Null
+    }
+    $path = Get-SessionMapPath
+    $tmp = "$path.tmp"
+    $Map | ConvertTo-Json -Depth 5 | Set-Content $tmp -Encoding UTF8
+    Move-Item -Path $tmp -Destination $path -Force
+}
+
+function Get-DefaultSessionName([string]$AgentName) {
+    $prefix = Get-SessionPrefix
+    if ([string]::IsNullOrWhiteSpace($prefix)) { return $AgentName }
+    if ($AgentName.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $AgentName
+    }
+    return "$prefix$AgentName"
+}
+
+function Get-SessionNameForAgent([string]$AgentName) {
+    $map = Load-SessionMap
+    if ($map.ContainsKey($AgentName) -and -not [string]::IsNullOrWhiteSpace([string]$map[$AgentName])) {
+        return [string]$map[$AgentName]
+    }
+    return Get-DefaultSessionName $AgentName
+}
+
+function Get-ExecutorAgents([string[]]$CandidateAgents = @()) {
+    $executorSet = @($Config.agents | Where-Object {
+        $_.ContainsKey("executor") -and $_["executor"] -eq $true
+    } | ForEach-Object { $_["name"] })
+    if ($CandidateAgents.Count -eq 0) { return $executorSet }
+    return @($executorSet | Where-Object { $CandidateAgents -contains $_ })
+}
+
+function Load-TaskCatalog {
+    $tasksFile = Join-Path $TasksPath "tasks.json"
+    if (-not (Test-Path $tasksFile)) { return @() }
+    try {
+        $tasks = Get-Content $tasksFile -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($tasks -is [array]) { return @($tasks) }
+    } catch {}
+    return @()
+}
+
+function Save-TaskCatalog([array]$Tasks) {
+    $tasksFile = Join-Path $TasksPath "tasks.json"
+    $Tasks | ConvertTo-Json -Depth 10 | Set-Content $tasksFile -Encoding UTF8
+}
+
+function Get-CanonicalTaskId($Task) {
+    if ($null -eq $Task) { return "" }
+    if ($Task.PSObject.Properties.Name -contains "task_id" -and $Task.task_id) { return [string]$Task.task_id }
+    if ($Task.PSObject.Properties.Name -contains "id" -and $Task.id) { return [string]$Task.id }
+    return ""
+}
+
+function Write-CurrentTaskSnapshot($Task) {
+    if (-not $Task) { return }
+    $snapshot = @{}
+    foreach ($prop in $Task.PSObject.Properties) {
+        if ($prop.Name -eq "id") { continue }
+        $snapshot[$prop.Name] = $prop.Value
+    }
+    $taskId = Get-CanonicalTaskId $Task
+    if ($taskId) { $snapshot["task_id"] = $taskId }
+    $snapshot | ConvertTo-Json -Depth 10 | Set-Content $CurrentTaskFile -Encoding UTF8
+}
+
+function Format-TaskDispatchBody($Task) {
+    $lines = @()
+    $taskId = Get-CanonicalTaskId $Task
+    $title = if ($Task.PSObject.Properties.Name -contains "title") { [string]$Task.title } else { "" }
+    if ($taskId) { $lines += "Task ID: $taskId" }
+    if (-not [string]::IsNullOrWhiteSpace($title)) { $lines += "Title: $title" }
+    if ($Task.PSObject.Properties.Name -contains "details" -and -not [string]::IsNullOrWhiteSpace([string]$Task.details)) {
+        $lines += ""
+        $lines += "Details:"
+        $lines += [string]$Task.details
+    }
+    if ($Task.PSObject.Properties.Name -contains "acceptance_criteria" -and $Task.acceptance_criteria) {
+        $lines += ""
+        $lines += "Acceptance Criteria:"
+        foreach ($criterion in @($Task.acceptance_criteria)) {
+            $lines += "- $criterion"
+        }
+    }
+    if ($Task.PSObject.Properties.Name -contains "reference_paths" -and $Task.reference_paths) {
+        $lines += ""
+        $lines += "Reference Paths:"
+        foreach ($path in @($Task.reference_paths)) {
+            $lines += "- $path"
+        }
+    }
+    return ($lines -join "`n")
+}
+
+function Queue-TaskDispatch([string]$AgentName, $Task, [string]$Reason = "dispatch") {
+    $taskId = Get-CanonicalTaskId $Task
+    if ([string]::IsNullOrWhiteSpace($taskId)) {
+        throw "Cannot dispatch task without task_id"
+    }
+
+    $inboxDir = Join-Path $DispatchDir "$AgentName\inbox"
+    if (-not (Test-Path $inboxDir)) { New-Item -ItemType Directory -Path $inboxDir -Force | Out-Null }
+    $body = Format-TaskDispatchBody $Task
+    $content = @(
+        "FROM: dispatcher"
+        "TO: $AgentName"
+        "TYPE: task"
+        "TASK_ID: $taskId"
+        "---"
+        $body
+        ""
+    ) -join "`n"
+    $fileName = "{0}_{1}.md" -f $Reason, $taskId
+    $target = Join-Path $inboxDir $fileName
+    $content | Set-Content $target -Encoding UTF8
+}
+
+function Dispatch-TaskById([string]$TaskId, [string]$AgentName, [string]$Reason = "dispatch") {
+    $tasks = Load-TaskCatalog
+    $task = $tasks | Where-Object { (Get-CanonicalTaskId $_) -eq $TaskId } | Select-Object -First 1
+    if (-not $task) {
+        throw "Task '$TaskId' not found in tasks.json"
+    }
+
+    foreach ($item in $tasks) {
+        if ((Get-CanonicalTaskId $item) -eq $TaskId) {
+            if ($item.PSObject.Properties.Name -contains "status") { $item.status = "in_progress" }
+        }
+    }
+    Save-TaskCatalog $tasks
+    Write-CurrentTaskSnapshot $task
+    Queue-TaskDispatch $AgentName $task $Reason
+}
+
+function Get-SelectedPlanPathFile {
+    return (Join-Path $RuntimeFlagsDir "selected_plan.txt")
+}
+
+function Get-SelectedPlanPath {
+    $path = Get-SelectedPlanPathFile
+    if (-not (Test-Path $path)) { return "" }
+    try {
+        return (Get-Content $path -Raw -Encoding UTF8).Trim()
+    } catch {
+        return ""
+    }
+}
+
+function Save-SelectedPlanPath([string]$PlanPath) {
+    if (-not (Test-Path $RuntimeFlagsDir)) {
+        New-Item -ItemType Directory -Path $RuntimeFlagsDir -Force | Out-Null
+    }
+    Set-Content -Path (Get-SelectedPlanPathFile) -Value $PlanPath -Encoding UTF8
+}
+
+function Get-PlanFiles {
+    if (-not $PlanFile -or -not (Test-Path $PlanFile)) { return @() }
+    return @(Get-ChildItem -LiteralPath $PlanFile -Filter "*.json" -File -ErrorAction SilentlyContinue | Sort-Object Name)
+}
+
+function SeedTasksFromPlan([string]$PlanPath) {
+    if ([string]::IsNullOrWhiteSpace($PlanPath) -or -not (Test-Path $PlanPath)) { return $false }
+    $tasksFile = Join-Path $TasksPath "tasks.json"
+    try {
+        $planData = Get-Content $PlanPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch {
+        Write-Host "    Failed to read selected plan: $($_.Exception.Message)" -ForegroundColor Yellow
+        return $false
+    }
+
+    $planTasks = @()
+    if ($planData -is [array]) {
+        $planTasks = @($planData)
+    } elseif ($planData.PSObject.Properties.Name -contains "tasks") {
+        $planTasks = @($planData.tasks)
+    }
+    if ($planTasks.Count -eq 0) { return $false }
+
+    $normalized = @()
+    foreach ($task in $planTasks) {
+        $taskId = Get-CanonicalTaskId $task
+        if ([string]::IsNullOrWhiteSpace($taskId)) { continue }
+        $snapshot = @{}
+        foreach ($prop in $task.PSObject.Properties) {
+            if ($prop.Name -eq "id") { continue }
+            $snapshot[$prop.Name] = $prop.Value
+        }
+        $snapshot["task_id"] = $taskId
+        if (-not $snapshot.ContainsKey("status")) { $snapshot["status"] = "pending" }
+        $normalized += [pscustomobject]$snapshot
+    }
+    if ($normalized.Count -eq 0) { return $false }
+
+    $normalized | ConvertTo-Json -Depth 10 | Set-Content $tasksFile -Encoding UTF8
+    return $true
+}
+
 function Get-ReviewerConfig {
     if (-not (Test-Path $ConfigPath)) { return $null }
     try {
@@ -482,7 +696,7 @@ function Go-Back {
 function Cur { if ($BackStack.Count -eq 0) { return $null } $BackStack.Peek() }
 
 function Reset-ToHome {
-    while ((Cur).id -ne "main" -and $BackStack.Count -gt 1) { Go-Back }
+    while ((Cur)["id"] -ne "main" -and $BackStack.Count -gt 1) { Go-Back }
 }
 
 function Get-Breadcrumbs {
@@ -490,7 +704,7 @@ function Get-Breadcrumbs {
     [Array]::Reverse($arr)
     $crumbs = @()
     foreach ($s in $arr) {
-        if ($null -ne $s.crumb -and -not [string]::IsNullOrWhiteSpace($s.crumb)) { $crumbs += $s.crumb }
+        if ($null -ne $s["crumb"] -and -not [string]::IsNullOrWhiteSpace([string]$s["crumb"])) { $crumbs += [string]$s["crumb"] }
     }
     return ($crumbs -join "  >  ")
 }
@@ -526,8 +740,8 @@ function Backup-File([string]$FilePath) {
     Copy-Item $FilePath (Join-Path $backupDir $backupName)
 
     # Keep last 5
-    $backups = Get-ChildItem -LiteralPath $backupDir -Filter "$name.bak.*" -File |
-        Sort-Object LastWriteTime -Descending
+    $backups = @(Get-ChildItem -LiteralPath $backupDir -Filter "$name.bak.*" -File |
+        Sort-Object LastWriteTime -Descending)
     if ($backups.Count -gt 5) {
         $backups | Select-Object -Skip 5 | Remove-Item -Force
     }
@@ -560,7 +774,7 @@ function Get-AgentReadiness {
         $tag = if ($ready) { [char]0x2713 } else { [char]0x2717 }
         $results += @{ name=$a; ready=$ready; tag="[$a $tag]" }
     }
-    $readyCount = ($results | Where-Object { $_.ready }).Count
+    $readyCount = @($results | Where-Object { $_.ready }).Count
     $total = $results.Count
     $tags = ($results | ForEach-Object { $_.tag }) -join " "
     return @{ summary="$readyCount/$total ready"; tags=$tags }
@@ -579,17 +793,49 @@ function Get-CurrentTaskInfo {
 }
 
 function Get-GateStatus {
+    $currentTaskId = ""
+    if ($CurrentTaskFile -and (Test-Path $CurrentTaskFile)) {
+        try {
+            $currentTask = Get-Content $CurrentTaskFile -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
+            if ($currentTask["task_id"]) { $currentTaskId = [string]$currentTask["task_id"] }
+            elseif ($currentTask["id"]) { $currentTaskId = [string]$currentTask["id"] }
+        } catch {}
+    }
+
+    if ($currentTaskId -and (Test-Path $MergedVerdictsDir)) {
+        $verdictPath = Join-Path $MergedVerdictsDir "$currentTaskId.json"
+        if (Test-Path $verdictPath) {
+            try {
+                $v = Get-Content $verdictPath -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
+                $verdict = if ($v["verdict"]) { $v["verdict"] } else { "?" }
+                $age = [math]::Round(((Get-Date) - (Get-Item $verdictPath).LastWriteTime).TotalMinutes)
+                return "$currentTaskId`: $verdict (${age}m ago)"
+            } catch { return "Verdict parse error" }
+        }
+    }
+
+    if ($currentTaskId -and (Test-Path $TrackersFile)) {
+        try {
+            $trackers = Get-Content $TrackersFile -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
+            if ($trackers.ContainsKey($currentTaskId)) {
+                $tracker = $trackers[$currentTaskId]
+                $received = @()
+                if ($tracker["received"]) { $received = @($tracker["received"].Keys) }
+                $required = if ($tracker["required"]) { @($tracker["required"]) } else { @() }
+                $missing = @($required | Where-Object { $received -notcontains $_ })
+                if ($missing.Count -gt 0) {
+                    $receivedText = if ($received.Count -gt 0) { " (received: $($received -join ', '))" } else { "" }
+                    return "Waiting on $($missing -join ', ')$receivedText"
+                }
+                return "Fan-in complete for $currentTaskId"
+            }
+        } catch {}
+    }
+
     if (-not (Test-Path $MergedVerdictsDir)) { return "No verdicts" }
-    $verdicts = Get-ChildItem -LiteralPath $MergedVerdictsDir -File -ErrorAction SilentlyContinue
+    $verdicts = @(Get-ChildItem -LiteralPath $MergedVerdictsDir -Filter "*.json" -File -ErrorAction SilentlyContinue)
     if ($verdicts.Count -eq 0) { return "No verdicts" }
-    $latest = $verdicts | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    try {
-        $v = Get-Content $latest.FullName -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
-        $who = if ($v["agent"]) { $v["agent"] } else { "unknown" }
-        $verdict = if ($v["verdict"]) { $v["verdict"] } else { "?" }
-        $age = [math]::Round(((Get-Date) - $latest.LastWriteTime).TotalMinutes)
-        return "$who`: $verdict (${age}m ago)"
-    } catch { return "Verdict parse error" }
+    return "Verdicts present"
 }
 
 function Get-LastAuditEvent {
@@ -620,6 +866,13 @@ function Get-DashboardLines {
             }
         } catch {}
     }
+
+    $executorHalts = @()
+    foreach ($agent in @($Config.agents | Where-Object { $_.ContainsKey("executor") -and $_["executor"] -eq $true })) {
+        $haltFile = Join-Path $HaltsDir "$($agent['name']).flag"
+        if (Test-Path $haltFile) { $executorHalts += $agent["name"] }
+    }
+    if ($executorHalts.Count -gt 0) { $sprintLabel = "PAUSED" }
 
     return @(
         "  Project:    $(if ($Config) { $Config.project } else { 'N/A' }) ($ProjectRoot)",
@@ -655,6 +908,34 @@ function Show-SprintStatusFull {
     Write-Host ($fmt -f "Agent", "Task", "Inbox", "Fan-In", "Verdict", "Last Activity") -ForegroundColor White
     Write-Host ("  " + ("-" * 75)) -ForegroundColor DarkGray
 
+    $currentTaskId = ""
+    if ($CurrentTaskFile -and (Test-Path $CurrentTaskFile)) {
+        try {
+            $ct = Get-Content $CurrentTaskFile -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
+            if ($ct["task_id"]) { $currentTaskId = [string]$ct["task_id"] }
+            elseif ($ct["id"]) { $currentTaskId = [string]$ct["id"] }
+        } catch {}
+    }
+
+    $trackerForCurrent = $null
+    if ($currentTaskId -and (Test-Path $TrackersFile)) {
+        try {
+            $trackers = Get-Content $TrackersFile -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
+            if ($trackers.ContainsKey($currentTaskId)) { $trackerForCurrent = $trackers[$currentTaskId] }
+        } catch {}
+    }
+
+    $currentVerdict = "-"
+    if ($currentTaskId -and (Test-Path $MergedVerdictsDir)) {
+        $verdictFile = Join-Path $MergedVerdictsDir "$currentTaskId.json"
+        if (Test-Path $verdictFile) {
+            try {
+                $vd = Get-Content $verdictFile -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
+                if ($vd["verdict"]) { $currentVerdict = [string]$vd["verdict"] }
+            } catch {}
+        }
+    }
+
     $agents = Get-AgentNames
     foreach ($a in $agents) {
         # Task
@@ -672,38 +953,23 @@ function Show-SprintStatusFull {
         $inboxPath = Join-Path $DispatchDir "$a\inbox"
         $inboxCount = 0
         if (Test-Path $inboxPath) {
-            $inboxCount = (Get-ChildItem -LiteralPath $inboxPath -File -ErrorAction SilentlyContinue).Count
+            $inboxCount = @(Get-ChildItem -LiteralPath $inboxPath -File -ErrorAction SilentlyContinue).Count
         }
 
         # Fan-in state
         $fanIn = "-"
-        if (Test-Path $TrackersFile) {
-            try {
-                $trackers = Get-Content $TrackersFile -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
-                foreach ($key in $trackers.Keys) {
-                    $t = $trackers[$key]
-                    if ($t["received"] -and $t["received"].ContainsKey($a)) {
-                        $received = $t["received"].Count
-                        $required = if ($t["required"]) { $t["required"].Count } else { "?" }
-                        $fanIn = "$received/$required"
-                    }
-                }
-            } catch {}
+        if ($trackerForCurrent) {
+            $receivedKeys = @()
+            if ($trackerForCurrent["received"]) { $receivedKeys = @($trackerForCurrent["received"].Keys) }
+            if ($receivedKeys -contains $a) {
+                $received = $receivedKeys.Count
+                $required = if ($trackerForCurrent["required"]) { @($trackerForCurrent["required"]).Count } else { "?" }
+                $fanIn = "$received/$required"
+            }
         }
 
         # Verdict
-        $verdict = "-"
-        $verdictFiles = @()
-        if (Test-Path $MergedVerdictsDir) {
-            $verdictFiles = Get-ChildItem -LiteralPath $MergedVerdictsDir -Filter "*.json" -File -ErrorAction SilentlyContinue
-        }
-        if ($verdictFiles.Count -gt 0) {
-            $latestV = $verdictFiles | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-            try {
-                $vd = Get-Content $latestV.FullName -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
-                $verdict = if ($vd["verdict"]) { $vd["verdict"] } else { "?" }
-            } catch {}
-        }
+        $verdict = $currentVerdict
 
         # Last activity
         $lastActivity = "-"
@@ -759,13 +1025,14 @@ function Build-AgentPickMenu([string]$ActionType) {
     $agents = Get-AgentNames
     $i = 1
     foreach ($a in $agents) {
+        $session = Get-SessionNameForAgent $a
         $sessionStatus = "No session"
         try {
-            & psmux has-session -t $a 2>$null | Out-Null
+            & psmux has-session -t $session 2>$null | Out-Null
             if ($LASTEXITCODE -eq 0) { $sessionStatus = "Running" }
         } catch {}
 
-        $items += New-MenuItem -Label "$i. $a  --  status: $sessionStatus" -Value @{ type=$ActionType; agent=$a }
+        $items += New-MenuItem -Label "$i. $a  --  session: $session  --  status: $sessionStatus" -Value @{ type=$ActionType; agent=$a }
         $i++
     }
     return $items
@@ -786,8 +1053,19 @@ function Open-AgentTerminal([string]$AgentName) {
     Launch-AgentWithMode $AgentName $pick.item.Value.mode
 }
 
-function Launch-AgentWithMode([string]$AgentName, [string]$Mode) {
-    $session = $AgentName
+function Resolve-ExistingSessionAction([string]$AgentName, [string]$SessionName) {
+    $items = @(
+        (New-MenuItem -Label "Attach to existing session" -Value "attach"),
+        (New-MenuItem -Label "Kill and recreate session" -Value "recreate"),
+        (New-MenuItem -Label "Skip this agent" -Value "skip")
+    )
+    $pick = Read-ArrowMenu -Header "Existing session for $AgentName" -Hint "Session '$SessionName' already exists." -Items $items
+    if ($pick.action -ne "select") { return "skip" }
+    return [string]$pick.item.Value
+}
+
+function Launch-AgentWithMode([string]$AgentName, [string]$Mode, [string]$SessionName = "") {
+    $session = if ([string]::IsNullOrWhiteSpace($SessionName)) { Get-SessionNameForAgent $AgentName } else { $SessionName }
 
     if ($Mode -eq "skip") {
         Write-Host "  Skipping $AgentName (assuming session exists)" -ForegroundColor DarkGray
@@ -803,16 +1081,24 @@ function Launch-AgentWithMode([string]$AgentName, [string]$Mode) {
     } catch {}
 
     if ($exists) {
-        $choice = Prompt-YesNo -Prompt "  Session '$session' exists. Kill and recreate?" -DefaultYes:$false
-        if ($choice) {
+        $choice = Resolve-ExistingSessionAction $AgentName $session
+        if ($choice -eq "recreate") {
             & psmux kill-session -t $session 2>$null
-        } else {
+        } elseif ($choice -eq "attach") {
             Write-Host "  Attaching to existing session." -ForegroundColor DarkGray
             Start-Process pwsh -ArgumentList @('-NoExit', '-Command', "psmux a -t '$session'")
             Pause-Notice "Attached."
             return
+        } else {
+            Write-Host "  Skipping $AgentName (existing session left untouched)." -ForegroundColor DarkGray
+            Pause-Notice ""
+            return
         }
     }
+
+    $sessionMap = Load-SessionMap
+    $sessionMap[$AgentName] = $session
+    Save-SessionMap $sessionMap
 
     # Create new session with GATE_AGENT_NAME set to the full config name (e.g. gate-ralph)
     & psmux new-session -d -s $session -c $ProjectRoot
@@ -841,7 +1127,7 @@ function Launch-AgentWithMode([string]$AgentName, [string]$Mode) {
 }
 
 function Attach-AgentSession([string]$AgentName) {
-    $session = $AgentName
+    $session = Get-SessionNameForAgent $AgentName
     $exists = $false
     try {
         & psmux has-session -t $session 2>$null | Out-Null
@@ -865,20 +1151,45 @@ function Invoke-ResumeStuckTask {
     Write-Host ""
     Write-Host "  Resume Stuck Task" -ForegroundColor Cyan
 
-    $orchCtl = Join-Path $EngineRoot "scripts\orchestratorctl.py"
-    if (-not (Test-Path $orchCtl)) {
-        Write-Host "  orchestratorctl.py not found" -ForegroundColor Red
+    $tasks = Load-TaskCatalog
+    if ($tasks.Count -eq 0) {
+        Write-Host "  No tasks found in tasks.json" -ForegroundColor Red
         Pause-Notice ""
         return
     }
 
-    & $PYTHON_EXE $orchCtl status 2>&1 | ForEach-Object { Write-Host "  $_" }
-    Write-Host ""
-    $agentName = Prompt-TextValue -Prompt "  Agent name to resume" -AllowEmpty:$false
-    $refan = Prompt-YesNo -Prompt "  Re-fan review requests for current task?" -DefaultYes:$false
-    $orchArgs = @("resume", "--agent", $agentName)
-    if ($refan) { $orchArgs += "--refan" }
-    & $PYTHON_EXE $orchCtl @orchArgs 2>&1 | ForEach-Object { Write-Host "  $_" }
+    $taskItems = @()
+    $i = 1
+    foreach ($task in $tasks) {
+        $taskId = Get-CanonicalTaskId $task
+        $title = if ($task.PSObject.Properties.Name -contains "title") { [string]$task.title } else { "untitled" }
+        $status = if ($task.PSObject.Properties.Name -contains "status") { [string]$task.status } else { "unknown" }
+        $taskItems += New-MenuItem -Label "$i. [$status] $taskId  --  $title" -Value @{ task_id=$taskId }
+        $i++
+    }
+
+    $pick = Read-ArrowMenu -Header "Resume Stuck Task" -Hint "Select the task to re-dispatch." -Items $taskItems
+    if ($pick.action -ne "select") { return }
+
+    $taskId = $pick.item.Value.task_id
+    $executors = Get-ExecutorAgents
+    if ($executors.Count -eq 0) {
+        Write-Host "  No executor agents configured." -ForegroundColor Red
+        Pause-Notice ""
+        return
+    }
+    $agentName = $executors[0]
+
+    try {
+        Dispatch-TaskById $taskId $agentName "resume_task"
+        $orchCtl = Join-Path $EngineRoot "scripts\orchestratorctl.py"
+        if (Test-Path $orchCtl) {
+            & $PYTHON_EXE $orchCtl resume $ProjectRoot --agent $agentName --refan 2>&1 | ForEach-Object { Write-Host "  $_" }
+        }
+        Write-Host "  Re-dispatched task $taskId to $agentName." -ForegroundColor Green
+    } catch {
+        Write-Host "  Failed to re-dispatch task: $($_.Exception.Message)" -ForegroundColor Red
+    }
     Pause-Notice ""
 }
 
@@ -893,10 +1204,50 @@ function Invoke-OverrideVerdict {
         return
     }
 
-    $taskId = Prompt-TextValue -Prompt "  Task ID" -AllowEmpty:$false
-    $verdict = Prompt-TextValue -Prompt "  Verdict (approved/rejected)" -Default "approved" -AllowEmpty:$false
+    $taskItems = @()
+    $seen = @{}
+    if ($CurrentTaskFile -and (Test-Path $CurrentTaskFile)) {
+        try {
+            $currentTask = Get-Content $CurrentTaskFile -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
+            $currentTaskId = if ($currentTask["task_id"]) { [string]$currentTask["task_id"] } elseif ($currentTask["id"]) { [string]$currentTask["id"] } else { "" }
+            if ($currentTaskId) {
+                $taskItems += New-MenuItem -Label "Current: $currentTaskId" -Value @{ task_id=$currentTaskId }
+                $seen[$currentTaskId] = $true
+            }
+        } catch {}
+    }
+    if (Test-Path $TrackersFile) {
+        try {
+            $trackers = Get-Content $TrackersFile -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
+            foreach ($taskKey in $trackers.Keys) {
+                if (-not $seen.ContainsKey($taskKey)) {
+                    $taskItems += New-MenuItem -Label "Tracked: $taskKey" -Value @{ task_id=$taskKey }
+                    $seen[$taskKey] = $true
+                }
+            }
+        } catch {}
+    }
+
+    if ($taskItems.Count -gt 0) {
+        $pick = Read-ArrowMenu -Header "Override Verdict" -Hint "Select a task or cancel to enter manually." -Items $taskItems
+        if ($pick.action -eq "select") {
+            $taskId = $pick.item.Value.task_id
+        } else {
+            $taskId = Prompt-TextValue -Prompt "  Task ID" -AllowEmpty:$false
+        }
+    } else {
+        $taskId = Prompt-TextValue -Prompt "  Task ID" -AllowEmpty:$false
+    }
+
+    $verdictItems = @(
+        (New-MenuItem -Label "approved" -Value "approved"),
+        (New-MenuItem -Label "rejected" -Value "rejected")
+    )
+    $verdictPick = Read-ArrowMenu -Header "Override Verdict" -Hint "Select the forced verdict." -Items $verdictItems
+    if ($verdictPick.action -ne "select") { return }
+    $verdict = $verdictPick.item.Value
     $reason = Prompt-TextValue -Prompt "  Reason (optional)" -Default "" -AllowEmpty:$true
-    $orchArgs = @("override", "--task", $taskId, "--verdict", $verdict)
+    $orchArgs = @("override", $ProjectRoot, "--task", $taskId, "--verdict", $verdict)
     if ($reason) { $orchArgs += @("--reason", $reason) }
     & $PYTHON_EXE $orchCtl @orchArgs 2>&1 | ForEach-Object { Write-Host "  $_" }
     Write-Host "  Verdict overridden. Audit logged." -ForegroundColor Green
@@ -912,7 +1263,7 @@ function Invoke-ClearHaltFlags {
             Write-Host "  No configured agents found." -ForegroundColor DarkGray
         } else {
             foreach ($agentName in $agents) {
-                & $PYTHON_EXE $orchCtl resume --agent $agentName 2>&1 | ForEach-Object { Write-Host "  $_" }
+                & $PYTHON_EXE $orchCtl resume $ProjectRoot --agent $agentName 2>&1 | ForEach-Object { Write-Host "  $_" }
             }
         }
     } else {
@@ -1132,6 +1483,10 @@ function Build-InstallMenu {
     )
 }
 
+function Get-ConfigSeedPath {
+    return (Join-Path $EngineRoot "artifacts\install\config\config.seed.json")
+}
+
 function Invoke-DeployToProject {
     $target = Show-FolderBrowserDialog -Description "Select project root to deploy orchestrator to" -StartPath $ProjectRoot
     if (-not $target) { return }
@@ -1143,28 +1498,28 @@ function Invoke-DeployToProject {
     $dispatchTarget = Join-Path $target "dispatch"
     $created = 0
     $skipped = 0
-    $overwrite = $false
-
-    # Check if target already has orchestrator — offer overwrite for updates
-    if (Test-Path $orchTarget) {
-        Write-Host "  Target already has .orchestrator/" -ForegroundColor Yellow
-        $confirm = Read-Host "  Overwrite existing files for update? (y/N)"
-        $overwrite = ($confirm -eq "y")
-    }
 
     # 1. Config template
     $configTarget = Join-Path $orchTarget "config.json"
-    if ($overwrite -or -not (Test-Path $configTarget)) {
+    if (-not (Test-Path $configTarget)) {
         if (-not (Test-Path $orchTarget)) { New-Item -ItemType Directory -Path $orchTarget -Force | Out-Null }
-        if (Test-Path $ConfigPath) {
-            Copy-Item $ConfigPath $configTarget
-            Write-Host "    + config.json (copied from current project)" -ForegroundColor Green
+        $configSeed = Get-ConfigSeedPath
+        if (Test-Path $configSeed) {
+            try {
+                $seedData = Get-Content $configSeed -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
+                $seedData["project"] = Split-Path $target -Leaf
+                $seedData | ConvertTo-Json -Depth 10 | Set-Content $configTarget -Encoding UTF8
+                Write-Host "    + config.json (seed template)" -ForegroundColor Green
+                $created++
+            } catch {
+                Write-Host "    ! failed to render config seed: $($_.Exception.Message)" -ForegroundColor Yellow
+            }
         } else {
             @{ project = (Split-Path $target -Leaf); agents = @() } |
                 ConvertTo-Json -Depth 5 | Set-Content $configTarget -Encoding UTF8
             Write-Host "    + config.json (minimal template)" -ForegroundColor Green
+            $created++
         }
-        $created++
     } else {
         Write-Host "    ~ config.json (exists, skipped)" -ForegroundColor DarkGray
         $skipped++
@@ -1209,7 +1564,7 @@ function Invoke-DeployToProject {
     if (-not (Test-Path $spDir)) { New-Item -ItemType Directory -Path $spDir -Force | Out-Null }
     foreach ($profileFile in @("sprint_on.json", "sprint_off.json")) {
         $pf = Join-Path $spDir $profileFile
-        if ($overwrite -or -not (Test-Path $pf)) {
+        if (-not (Test-Path $pf)) {
             @{
                 roles = @{}
                 hooks_config = @{
@@ -1241,16 +1596,6 @@ function Invoke-DeployToProject {
             $engineRoot = $Config.shared_roots.orchestrator_fallback
         }
     }
-    if (-not $engineRoot) {
-        # Walk up from launcher to find scripts/install_hooks.py
-        $_s = $SCRIPT_DIR
-        while ($_s) {
-            if (Test-Path (Join-Path $_s "scripts/install_hooks.py")) { $engineRoot = $_s; break }
-            $_p = Split-Path $_s -Parent
-            if ($_p -eq $_s) { break }
-            $_s = $_p
-        }
-    }
 
     # Backup roles.json before hooks are installed
     $rolesPath = Join-Path $env:USERPROFILE ".claude\hooks\roles.json"
@@ -1275,7 +1620,7 @@ function Invoke-DeployToProject {
             Write-Host "    ! install_hooks.py not found at $installScript" -ForegroundColor Yellow
         }
     } else {
-        Write-Host "    ! No engine root found -- hooks not installed. Deploy engine first." -ForegroundColor Yellow
+        Write-Host "    ! No deployed engine root found in shared_roots -- hooks not installed. Deploy engine first." -ForegroundColor Yellow
     }
 
     # 7. Summary
@@ -1297,14 +1642,14 @@ function Invoke-DeployEngine {
     $target = Show-FolderBrowserDialog -Description "Select target for engine deployment (NAS or D:\)" -StartPath $defaultTarget
     if (-not $target) { return }
 
-    # Engine source = $ProjectRoot (dispatcher/) — all engine code lives here directly
-    $engineSource = $ProjectRoot
+    # Engine source stays pinned to the launcher checkout, not the mutable selected project root.
+    $engineSource = $EngineRoot
 
     Write-Host ""
     Write-Host "  Deploying engine to: $target" -ForegroundColor Cyan
 
     # Check if target already has engine files — confirm before overwriting
-    $existingDirs = @("hooks", "lib", "scripts", "schemas", "bin") | Where-Object { Test-Path (Join-Path $target $_) }
+    $existingDirs = @(@("hooks", "lib", "scripts", "schemas", "bin") | Where-Object { Test-Path (Join-Path $target $_) })
     if ($existingDirs.Count -gt 0) {
         Write-Host "  WARNING: Target already has engine files: $($existingDirs -join ', ')" -ForegroundColor Yellow
         $confirm = Read-Host "  Overwrite existing files? (y/N)"
@@ -1315,10 +1660,8 @@ function Invoke-DeployEngine {
         }
     }
 
-    # Engine code + launcher + config templates — everything needed for standalone install
-    # .orchestrator/ = project template (installed into target projects via install_hooks.py)
-    # agents/ deployed separately via "Deploy Agents" menu item
-    $copyDirs = @("hooks", "lib", "scripts", "schemas", "bin", "tests", "mcp-server", "sprint_profiles", ".orchestrator")
+    # Engine code + agent profiles/protocols needed for standalone install
+    $copyDirs = @("hooks", "lib", "scripts", "schemas", "bin", "tests", "mcp-server", "agents\profiles", "agents\protocols")
     # Docs needed for install on other machines + version file
     $copyFiles = @("VERSION", "SETUP.md", "QUICKSTART.md", "COMMANDS.md", "SMOKE_TEST.md")
     # Project-specific dirs to SKIP (never deploy these)
@@ -1351,7 +1694,7 @@ function Invoke-DeployEngine {
     # Verify: py_compile all .py files
     Write-Host ""
     Write-Host "  Verifying .py files..." -ForegroundColor DarkGray
-    $pyFiles = Get-ChildItem -LiteralPath $target -Filter "*.py" -Recurse -File -ErrorAction SilentlyContinue
+    $pyFiles = @(Get-ChildItem -LiteralPath $target -Filter "*.py" -Recurse -File -ErrorAction SilentlyContinue)
     $compileErrors = 0
     foreach ($py in $pyFiles) {
         $result = & $PYTHON_EXE -m py_compile $py.FullName 2>&1
@@ -1408,7 +1751,7 @@ function Invoke-DeployAgents {
     $agentFolders = @()
     $allDirs = @(Get-ChildItem -LiteralPath $profilesDir -Directory -Recurse -ErrorAction SilentlyContinue)
     foreach ($d in $allDirs) {
-        $hasMd = @(Get-ChildItem -LiteralPath $d.FullName -Filter "*.md" -File -ErrorAction SilentlyContinue)
+            $hasMd = @(Get-ChildItem -LiteralPath $d.FullName -Filter "*.md" -File -ErrorAction SilentlyContinue)
         if ($hasMd.Count -gt 0) {
             $agentFolders += $d
         }
@@ -1622,8 +1965,8 @@ function Invoke-ChangeProject {
     $testConfig = Join-Path $target ".orchestrator\config.json"
     if (-not (Test-Path $testConfig)) {
         Write-Host "  No .orchestrator/config.json found at $target" -ForegroundColor Red
-        $proceed = Prompt-YesNo -Prompt "  Use this directory anyway?" -DefaultYes:$false
-        if (-not $proceed) { return }
+        Pause-Notice ""
+        return
     }
 
     # Update globals
@@ -1663,7 +2006,7 @@ function Invoke-ValidateConfig {
 
     $validateScript = Join-Path $EngineRoot "scripts\validate.py"
     if (Test-Path $validateScript) {
-        & $PYTHON_EXE $validateScript 2>&1 | ForEach-Object { Write-Host "  $_" }
+        & $PYTHON_EXE $validateScript $ProjectRoot 2>&1 | ForEach-Object { Write-Host "  $_" }
     } else {
         # Manual validation
         $checks = @()
@@ -1824,7 +2167,7 @@ function Build-AgentInboxMenu {
         $inboxPath = Join-Path $DispatchDir "$a\inbox"
         $count = 0
         if (Test-Path $inboxPath) {
-            $count = (Get-ChildItem -LiteralPath $inboxPath -File -ErrorAction SilentlyContinue).Count
+            $count = @(Get-ChildItem -LiteralPath $inboxPath -File -ErrorAction SilentlyContinue).Count
         }
         $items += New-MenuItem -Label "$i. $a  ($count messages)" -Value @{ type="open_agent_inbox"; agent=$a }
         $i++
@@ -1857,6 +2200,7 @@ function Start-WatcherWithSupervisor {
     $escapedFlags = $runtimeFlagsPath -replace "'", "''"
     $escapedPid = $pidFile -replace "'", "''"
     $escapedSupervisorPid = $supervisorPidFile -replace "'", "''"
+    $escapedProjectRoot = $ProjectRoot -replace "'", "''"
 
     # Launch detached supervisor process
     $supervisorBlock = @"
@@ -1866,12 +2210,13 @@ function Start-WatcherWithSupervisor {
 `$flagsDir = '$escapedFlags'
 `$watcherScript = '$escapedScript'
 `$python = '$pythonExe'
+`$projectRoot = '$escapedProjectRoot'
 
 # Write supervisor PID so Invoke-KillWatcher can terminate it
 `$PID | Set-Content `$supervisorPidFile -Encoding UTF8
 
 while (-not (Test-Path (Join-Path `$flagsDir 'STOP'))) {
-    `$proc = Start-Process `$python -ArgumentList `$watcherScript -PassThru -NoNewWindow
+    `$proc = Start-Process `$python -ArgumentList @(`$watcherScript, `$projectRoot) -WorkingDirectory `$projectRoot -PassThru -NoNewWindow
     `$proc.Id | Set-Content `$pidFile -Encoding UTF8
     `$proc.WaitForExit()
     if (`$proc.ExitCode -eq 0) { break }
@@ -1885,6 +2230,39 @@ if (Test-Path `$supervisorPidFile) { Remove-Item `$supervisorPidFile -Force }
 
     Start-Process pwsh -ArgumentList @('-NoProfile', '-Command', $supervisorBlock) -WindowStyle Hidden
     Write-Host "  Watcher supervisor started (detached)." -ForegroundColor Green
+}
+
+function Wait-ForReadyFiles([string[]]$Agents, [int]$TimeoutSeconds = 60, [bool]$RequireReady = $true) {
+    Write-Host "  [5/5] Waiting for ready files..." -ForegroundColor DarkGray
+    $start = Get-Date
+    $readyAgents = @{}
+
+    while (((Get-Date) - $start).TotalSeconds -lt $TimeoutSeconds) {
+        foreach ($agentName in $Agents) {
+            if (-not $readyAgents.ContainsKey($agentName)) {
+                $readyFile = Join-Path $DispatchDir "$agentName\ready"
+                if (Test-Path $readyFile) {
+                    $readyAgents[$agentName] = $true
+                    Write-Host "    Ready: $agentName" -ForegroundColor Green
+                }
+            }
+        }
+
+        if ($readyAgents.Count -eq $Agents.Count) {
+            Write-Host "    All selected agents reported ready." -ForegroundColor Green
+            return $true
+        }
+        Start-Sleep 2
+    }
+
+    $missing = @($Agents | Where-Object { -not $readyAgents.ContainsKey($_) })
+    if ($RequireReady) {
+        Write-Host "    Ready wait timed out. Missing: $($missing -join ', ')" -ForegroundColor Yellow
+        return $false
+    }
+
+    Write-Host "    Ready files are advisory; continuing without: $($missing -join ', ')" -ForegroundColor DarkGray
+    return $true
 }
 
 function Invoke-SprintWizard {
@@ -1907,6 +2285,20 @@ function Invoke-SprintWizard {
 
     if ($null -eq $selectedAgents -or $selectedAgents.Count -eq 0) { return }
     $selectedAgents = @($selectedAgents)
+
+    # Plan selection
+    $planFiles = Get-PlanFiles
+    $selectedPlanPath = ""
+    if ($planFiles.Count -gt 0) {
+        $planItems = @()
+        foreach ($plan in $planFiles) {
+            $planItems += New-MenuItem -Label $plan.Name -Value $plan.FullName
+        }
+        $planPick = Read-ArrowMenu -Header "Sprint Wizard - Plan Selection" -Hint "Select the plan file for this sprint." -Items $planItems
+        if ($planPick.action -ne "select") { return }
+        $selectedPlanPath = [string]$planPick.item.Value
+        Save-SelectedPlanPath $selectedPlanPath
+    }
 
     # Step 2: Launch mode per agent (collect mode + model/cmd here, not at launch time)
     $launchModes = @{}
@@ -1974,12 +2366,17 @@ function Invoke-SprintWizard {
     Write-Host ""
     Write-Host "  Step 3/4 - Session names (Enter to keep defaults):" -ForegroundColor Cyan
     $sessionNames = @{}
-    $prefix = Get-SessionPrefix
     foreach ($a in $selectedAgents) {
-        $default = "${prefix}${a}"
+        $default = Get-DefaultSessionName $a
         $name = Prompt-TextValue -Prompt "  Session for $a" -Default $default -AllowEmpty:$false
         $sessionNames[$a] = $name
     }
+
+    $sessionMap = Load-SessionMap
+    foreach ($a in $selectedAgents) {
+        $sessionMap[$a] = $sessionNames[$a]
+    }
+    Save-SessionMap $sessionMap
 
     # Step 4: Confirm and launch
     Write-Host ""
@@ -1992,9 +2389,8 @@ function Invoke-SprintWizard {
         Write-Host "    $a -> mode=$modeStr, session=$($sessionNames[$a])" -ForegroundColor White
     }
 
-    $planExists = $PlanFile -and (Test-Path $PlanFile)
-    if ($planExists) {
-        Write-Host "    Plan: $PlanFile" -ForegroundColor White
+    if (-not [string]::IsNullOrWhiteSpace($selectedPlanPath)) {
+        Write-Host "    Plan: $selectedPlanPath" -ForegroundColor White
     }
     Write-Host ""
 
@@ -2007,6 +2403,19 @@ function Invoke-SprintWizard {
 
     # 1. Validate config
     Write-Host "  [1/5] Validating config..." -ForegroundColor DarkGray
+    try {
+        $validation = Invoke-OrchestratorCtl @("validate", $ProjectRoot) 2>&1
+        $validation | ForEach-Object { Write-Host "    $_" }
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "  Validation failed; sprint launch aborted." -ForegroundColor Red
+            Pause-Notice ""
+            return
+        }
+    } catch {
+        Write-Host "  Validation failed to run: $($_.Exception.Message)" -ForegroundColor Red
+        Pause-Notice ""
+        return
+    }
 
     # 2. Ensure dispatch folders
     Write-Host "  [2/5] Ensuring dispatch folders..." -ForegroundColor DarkGray
@@ -2033,6 +2442,28 @@ function Invoke-SprintWizard {
             continue
         }
 
+        $exists = $false
+        try {
+            & psmux has-session -t $session 2>$null | Out-Null
+            $exists = ($LASTEXITCODE -eq 0)
+        } catch {}
+
+        if ($exists) {
+            $action = Resolve-ExistingSessionAction $a $session
+            if ($action -eq "attach") {
+                $escapedSession = Escape-PSString $session
+                $escapedAgent = Escape-PSString $a
+                Start-Process pwsh -ArgumentList @('-NoExit', '-Command', "`$Host.UI.RawUI.WindowTitle = 'Agent: $escapedAgent'; psmux a -t '$escapedSession'")
+                Write-Host "    Attached to existing session for $a" -ForegroundColor DarkGray
+                continue
+            }
+            if ($action -eq "skip") {
+                Write-Host "    Skipped launch for $a (existing session kept)" -ForegroundColor DarkGray
+                continue
+            }
+            & psmux kill-session -t $session 2>$null
+        }
+
         # Create psmux session with GATE_AGENT_NAME (config agent name, e.g. gate-ralph)
         & psmux new-session -d -s $session -c $ProjectRoot 2>$null
         & psmux send-keys -t $session "`$env:GATE_AGENT_NAME = '$a'" Enter
@@ -2053,23 +2484,34 @@ function Invoke-SprintWizard {
         Write-Host "    Launched $a in session $session (mode=$mode)" -ForegroundColor Green
     }
 
-    # 5. Wait for ready files (optional)
-    if ($Config.session.require_ready_files) {
-        Write-Host "  [5/5] Waiting for ready files..." -ForegroundColor DarkGray
-        $timeout = 60
-        $start = Get-Date
-        while (((Get-Date) - $start).TotalSeconds -lt $timeout) {
-            $allReady = $true
-            foreach ($a in $selectedAgents) {
-                if (-not (Test-Path (Join-Path $DispatchDir "$a\ready"))) { $allReady = $false; break }
-            }
-            if ($allReady) { break }
-            Start-Sleep 2
-            Write-Host "." -NoNewline
+    $readyRequired = $false
+    if ($Config -and $Config.session -and $Config.session.ContainsKey("require_ready_files")) {
+        $readyRequired = [bool]$Config.session.require_ready_files
+    }
+    $null = Wait-ForReadyFiles -Agents $selectedAgents -TimeoutSeconds 60 -RequireReady:$readyRequired
+
+    $currentTaskExists = $CurrentTaskFile -and (Test-Path $CurrentTaskFile) -and ((Get-Content $CurrentTaskFile -Raw -Encoding UTF8).Trim().Length -gt 0)
+    if (-not $currentTaskExists -and -not [string]::IsNullOrWhiteSpace($selectedPlanPath)) {
+        $seeded = SeedTasksFromPlan $selectedPlanPath
+        if ($seeded) {
+            Write-Host "    Seeded tasks.json from selected plan." -ForegroundColor Green
         }
-        Write-Host ""
-    } else {
-        Write-Host "  [5/5] Ready files not required (skipping)" -ForegroundColor DarkGray
+    }
+    if (-not $currentTaskExists) {
+        $executorAgents = Get-ExecutorAgents $selectedAgents
+        $firstExecutor = if ($executorAgents.Count -gt 0) { $executorAgents[0] } else { $null }
+        $tasks = Load-TaskCatalog | Where-Object {
+            $_.PSObject.Properties.Name -contains "status" -and $_.status -eq "pending"
+        }
+        if ($firstExecutor -and $tasks.Count -gt 0) {
+            $firstTaskId = Get-CanonicalTaskId $tasks[0]
+            try {
+                Dispatch-TaskById $firstTaskId $firstExecutor "launch_task"
+                Write-Host "    Dispatched first task $firstTaskId to $firstExecutor" -ForegroundColor Green
+            } catch {
+                Write-Host "    Failed to dispatch first task: $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+        }
     }
 
     Write-Host ""
@@ -2135,9 +2577,16 @@ function Invoke-SprintStop {
 
     # Print summary
     $task = Get-CurrentTaskInfo
+    $tasks = Load-TaskCatalog
+    $doneCount = @($tasks | Where-Object { $_.PSObject.Properties.Name -contains "status" -and $_.status -eq "done" }).Count
+    $remainingCount = @($tasks | Where-Object { $_.PSObject.Properties.Name -contains "status" -and $_.status -ne "done" }).Count
+    $watcherSummary = Get-WatcherStatus
     Write-Host ""
     Write-Host "  Sprint summary:" -ForegroundColor Cyan
     Write-Host "    Current task: $task"
+    Write-Host "    Tasks completed: $doneCount"
+    Write-Host "    Tasks remaining: $remainingCount"
+    Write-Host "    Total time: $($watcherSummary.text)"
     Write-Host "    Audit log: $AuditLogPath"
 
     # Optionally close terminals
@@ -2145,7 +2594,8 @@ function Invoke-SprintStop {
     if ($close) {
         $agents = Get-AgentNames
         foreach ($a in $agents) {
-            try { & psmux kill-session -t $a 2>$null } catch {}
+            $session = Get-SessionNameForAgent $a
+            try { & psmux kill-session -t $session 2>$null } catch {}
         }
         Write-Host "    Sessions killed." -ForegroundColor DarkGray
     }
@@ -2223,7 +2673,7 @@ function Build-MainMenu {
 
     # Quick Access
     $items += New-MenuItem -Label "───── Quick Access ─────" -Value $null -Selectable:$false
-    $items += New-MenuItem -Label "34. Audit Log (folder)"        -Value @{ type="open_folder"; path=$LogsDir }
+    $items += New-MenuItem -Label "34. Audit Log (folder)"        -Value @{ type="open_folder"; path=(Split-Path $AuditLogPath -Parent) }
     $items += New-MenuItem -Label "35. Dispatch Folders"           -Value @{ type="open_folder"; path=$DispatchDir }
     $items += New-MenuItem -Label "36. Agent Inboxes..."           -Value @{ type="agent_inboxes_menu" }
     $items += New-MenuItem -Label "37. Config File"                -Value @{ type="open_file"; path=$ConfigPath }
@@ -2330,16 +2780,16 @@ Push-State @{
     if (-not $s) { break }
 
     $theme = Get-Theme
-    $r = Read-ArrowMenu -Header $s.header -Hint $s.hint -Items $s.items `
+    $r = Read-ArrowMenu -Header $s["header"] -Hint $s["hint"] -Items $s["items"] `
         -Breadcrumb (Get-Breadcrumbs) -Status (Get-StatusLine) `
-        -InitialPos $s.selPos `
+        -InitialPos $s["selPos"] `
         -AccentColor $theme.Accent -TitleColor $theme.Title -DividerColor $theme.Divider
 
     # Save cursor position so menu remembers where we were
-    $s.selPos = $r.selPos
+    $s["selPos"] = $r.selPos
 
     if ($r.action -eq "back")   { Go-Back; continue }
-    if ($r.action -eq "cancel") { if ($s.id -eq "main") { break MAIN } else { Go-Back; continue } }
+    if ($r.action -eq "cancel") { if ($s["id"] -eq "main") { break MAIN } else { Go-Back; continue } }
 
     $item = $r.item
     if (-not $item) { continue }
@@ -2352,10 +2802,10 @@ Push-State @{
             "quit" { break MAIN }
 
             # --- Sprint Control (rebuild menu: state changed) ---
-            "sprint_wizard"  { Invoke-SprintWizard; (Cur).items = Build-MainMenu; continue }
-            "sprint_pause"   { Invoke-SprintPause;  (Cur).items = Build-MainMenu; continue }
-            "sprint_resume"  { Invoke-SprintResume; (Cur).items = Build-MainMenu; continue }
-            "sprint_stop"    { Invoke-SprintStop;   (Cur).items = Build-MainMenu; continue }
+            "sprint_wizard"  { Invoke-SprintWizard; (Cur)["items"] = Build-MainMenu; continue }
+            "sprint_pause"   { Invoke-SprintPause;  (Cur)["items"] = Build-MainMenu; continue }
+            "sprint_resume"  { Invoke-SprintResume; (Cur)["items"] = Build-MainMenu; continue }
+            "sprint_stop"    { Invoke-SprintStop;   (Cur)["items"] = Build-MainMenu; continue }
 
             # --- Monitoring (no rebuild needed) ---
             "status_dashboard"    { Show-StatusDashboard; Pause-Notice ""; continue }
@@ -2391,15 +2841,15 @@ Push-State @{
             "launch_agent"    { Launch-AgentWithMode $v.agent $v.mode; Reset-ToHome; continue }
             "resume_stuck_task"  { Invoke-ResumeStuckTask; continue }
             "override_verdict"   { Invoke-OverrideVerdict; continue }
-            "clear_halt_flags"   { Invoke-ClearHaltFlags; (Cur).items = Build-MainMenu; continue }  # rebuild: halt state changed
+            "clear_halt_flags"   { Invoke-ClearHaltFlags; (Cur)["items"] = Build-MainMenu; continue }  # rebuild: halt state changed
 
             # --- Hook Control ---
             "toggle_hook"      { Invoke-ToggleHook; continue }
             "hook_status"      { Show-HookStatus; Pause-Notice ""; continue }
             "hooks_enable_all" { Set-AllHooks $true;  Pause-Notice "All hooks enabled."; continue }
             "hooks_disable_all"{ Set-AllHooks $false; Pause-Notice "All hooks disabled."; continue }
-            "sprint_mode_on"   { Set-SprintMode $true;  (Cur).items = Build-MainMenu; continue }  # rebuild: sprint state changed
-            "sprint_mode_off"  { Set-SprintMode $false; (Cur).items = Build-MainMenu; continue }  # rebuild: sprint state changed
+            "sprint_mode_on"   { Set-SprintMode $true;  (Cur)["items"] = Build-MainMenu; continue }  # rebuild: sprint state changed
+            "sprint_mode_off"  { Set-SprintMode $false; (Cur)["items"] = Build-MainMenu; continue }  # rebuild: sprint state changed
             "folder_unlock"    { Invoke-FolderUnlock; continue }
 
             # --- Install Options (submenu) ---
@@ -2428,8 +2878,8 @@ Push-State @{
             "sprint_ready"     { Invoke-SprintReady; continue }
             "doctor"           { Invoke-Doctor; continue }
             "reviewer_set"     { Invoke-ReviewerSet; continue }
-            "reset_watcher"    { Invoke-ResetWatcher; (Cur).items = Build-MainMenu; continue }  # rebuild: watcher state changed
-            "kill_watcher"     { Invoke-KillWatcher;  (Cur).items = Build-MainMenu; continue }  # rebuild: watcher state changed
+            "reset_watcher"    { Invoke-ResetWatcher; (Cur)["items"] = Build-MainMenu; continue }  # rebuild: watcher state changed
+            "kill_watcher"     { Invoke-KillWatcher;  (Cur)["items"] = Build-MainMenu; continue }  # rebuild: watcher state changed
 
             # --- Quick Access ---
             "open_folder" {

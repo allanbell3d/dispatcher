@@ -6,7 +6,11 @@ Dispatcher puts a system in place so AIs cannot fuck up a build. It enforces rev
 
 One coder does the work. Reviewers block the commit if it doesn't match the spec. A monitor watches the coder live and halts it mid-session if it drifts. The coder never sees the plan — it gets one task at a time via its inbox.
 
-Primary operator UI: `bin/orch_launcher.ps1`. The older `bin/launch.ps1` and `bin/launch.sh` scripts are legacy fossils and should not be used for new work.
+Primary operator UIs:
+- `bin/orch_launcher.ps1` for the PowerShell operator path
+- `python -m desktop_app.main` for the repo-run PySide6 desktop control plane
+
+The older `bin/launch.ps1` and `bin/launch.sh` scripts are legacy fossils and should not be used for new work.
 
 It is an **experiment rig, not a product.** Zero code changes between experiments. Team composition, routing rules, consensus model, wake timing, folder paths — all from `config.json`.
 
@@ -89,7 +93,7 @@ dispatcher/
 │   └── <agent>/            inbox/ outbox/ reports/ done/ archive/
 │
 ├── agents/profiles/        coordinated (gate-*/) and standalone agent profiles
-├── docs/architecture/      canonical specs (MASTER_SPECS_MERGED, KISS, Hook Guide, Launcher, Liveness)
+├── docs/architecture_frozen/ canonical historical specs and design references
 ├── docs_dev/               reviews, plans, ref docs, legacy artifacts
 ├── memory/                 per-agent session memory
 └── mcp-server/             frozen — not wired, not deleted
@@ -143,7 +147,7 @@ Want 3 reviewers instead of 2? Add them to `agents[]` and `gate.require_approval
 
 | Document | What it defines |
 |----------|----------------|
-| [MASTER_SPECS_MERGED.md](docs/architecture/MASTER_SPECS_MERGED.md) | 21 components, 32 hard rules, 13 FLAGs — the complete engine contract |
+| [MASTER_SPECS_MERGED.md](docs/architecture_frozen/MASTER_SPECS_MERGED.md) | 21 components, 32 hard rules, 13 FLAGs — the complete historical engine spec |
 | [MASTER_KISS_follow_Allways_spec.md](docs_dev/specs_frozen/MASTER_KISS_follow_Allways_spec.md) | 4 survival questions per function, 6 coding rules |
 | [HOOK_SYSTEM_ORCHESTRATOR_GUIDE.md](docs_dev/specs_frozen/HOOK_SYSTEM_ORCHESTRATOR_GUIDE.md) | Hook engineering principles P1-P8, wiring contract |
 | [LAUNCHER_SPEC.md](docs_dev/specs_frozen/LAUNCHER_SPEC.md) | 38 menu items, sprint wizard, install submenu |
@@ -168,11 +172,19 @@ Want 3 reviewers instead of 2? Add them to `agents[]` and `gate.require_approval
 
 ## Current Status
 
-**Version:** 0.1.10
-**Waves 1-4:** code-complete
+**Version:** 0.1.14+
+**Waves 1-5:** locally stabilized and verified
 **Production-ready:** No
 
-14 known issues identified by GPT review, Codex audit, and hookmaster live testing. The top blocker is the Python import bootstrap — `sys.path` resolves wrong, so no hook or script actually runs. See [CHANGELOG.md](CHANGELOG.md) for the full issue list and fix priorities.
+Current local verification:
+- `python -m pytest -q` passes in the repo
+- `python scripts/doctor.py .` passes
+- `python scripts/validate.py .` passes
+- `python scripts/sprint_ready.py .` passes
+- `pwsh -NoProfile -File bin/orch_launcher.ps1 -DryRun` passes
+- `python -m desktop_app.main` constructs and runs as a repo-run desktop control plane
+
+The main remaining work is operator-surface trust and live human validation on a real project, not bootstrap/import breakage.
 
 ---
 

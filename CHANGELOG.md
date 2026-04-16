@@ -5,7 +5,7 @@ Extracted from the Advert repo commit history (2026-04-10 to 2026-04-13).
 
 ---
 
-## Known Issues (as of 0.1.14)
+## Known Issues (as of 0.1.15)
 
 Local blockers from the 14-finding review are addressed. Remaining risk is integration proof, not known broken core behavior:
 
@@ -15,6 +15,26 @@ Local blockers from the 14-finding review are addressed. Remaining risk is integ
 | 2 | Historical frozen docs still mention legacy paths and are intentionally preserved for audit context | LOW |
 | 3 | `bin/orch_launcher.ps1` should be run with `pwsh`, not Windows PowerShell 5 | LOW |
 | 4 | The mixed-agent idle handoff still needs Allan confirmation during a live Wave 5 sprint, even though the consolidated monitor pipeline now passes local integration coverage | MEDIUM |
+| 5 | The new repo-run desktop control plane passes local smoke verification but still needs operator validation in real use | MEDIUM |
+
+---
+
+## [0.1.15] -- 2026-04-16 (launcher MVP stabilization + desktop control plane MVP)
+
+### Added
+- `desktop_app/` repo-run PySide6 desktop control plane MVP with dashboard, sprint controls, agent/session actions, task controls, hook controls, logs, reviewer presets, settings backup/restore, sprint mode, folder override, and deploy helpers.
+- Launcher regression coverage for session naming, task dispatch, project targeting, deploy semantics, pause/stop behavior, quick-access paths, collection-count safety, and nav-state access.
+- Repo dispatch-tree regression coverage to keep the checked-in sample state structurally valid and placeholder-only.
+
+### Changed
+- `bin/orch_launcher.ps1` now honors explicit project targeting for Python-backed actions, persists session-name mappings, handles existing session collisions during sprint launch, seeds first-task dispatch from selected plan data, uses safer deploy semantics, and surfaces better pause/stop status in the operator UI.
+- `README.md`, `CLAUDE.md`, `QUICKSTART.md`, and `docs/OPERATOR_GUIDE.md` now describe the current repo-run launcher and desktop entry points instead of the old broken-state story.
+- `.gitignore` now ignores the current repo-local pytest scratch directory patterns.
+
+### Fixed
+- Resolved launcher runtime crashes caused by hashtable nav-state property access and PowerShell scalar-vs-array `.Count` assumptions.
+- Restored a clean checked-in sample state by removing stale halt flags and stray dispatch artifacts while preserving the validator-required placeholder directory structure.
+- Aligned `tests/test_c3_install_hooks.py` with the current roles-based monitor-ingest contract.
 
 ---
 

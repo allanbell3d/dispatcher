@@ -1,6 +1,6 @@
 # Dispatcher — Project State
 
-**Version:** v0.1.14
+**Version:** v0.1.15
 **Branch:** dev
 **Repo:** https://github.com/allanbell3d/dispatcher
 
@@ -41,6 +41,8 @@
 - Coordinated gate role prompts, memory overlays, and startup notes are aligned to the current dispatch contract.
 - `validate.py`, `doctor.py`, and the pytest suite all run successfully in this repo.
 - Idle projects now validate cleanly, and strict sprint preflight is exposed separately through `scripts/sprint_ready.py`, `scripts/orchestratorctl.py sprint-ready`, and the launcher.
+- The PowerShell launcher now supports stricter project targeting, safer deploy semantics, sprint launch task seeding, session-name persistence, better pause/stop status reporting, and a cleaner checked-in sample state.
+- A repo-run PySide6 desktop control plane now exists under `desktop_app/` and constructs successfully in local smoke verification.
 
 ## What Doesn't Work (known)
 
@@ -48,6 +50,7 @@
 2. **Legacy historical docs still exist** — frozen specs and fossil launcher references remain for history, even though the live contract is now documented separately.
 3. **Windows PowerShell 5 is not a supported launcher shell** — `bin/orch_launcher.ps1` dry-run succeeds in `pwsh`; older `powershell.exe` lacks `ConvertFrom-Json -AsHashtable`.
 4. **Mixed-agent live monitor proof still needs a live sprint** — the consolidated JSONL pipeline is covered locally, but Allan still needs to confirm the real reviewer-idle handoff flow under production use.
+5. **Desktop app still needs real operator validation** — local smoke verification passes, but the PySide6 surface still needs real-world use feedback.
 
 ## What Was Fixed In 0.1.14
 
@@ -77,3 +80,4 @@
 | 2026-04-14 | Codex | Split install validation from sprint preflight with `sprint_ready.py`, launcher action, and operator doc updates | pending commit |
 | 2026-04-14 | Codex | Executed the dispatcher parallel plan pack across docs governance, artifact library, role/init refresh, and plan-ingest normalization; verified targeted pytest and dispatch smoke coverage | `daecd3c`→`06b18c6` |
 | 2026-04-14 | Codex | Consolidated dispatcher logging + monitor streaming around session JSONL tailing, canonical parse/render flow, durable trace logging, reviewer-secondary routing, and tested Wave 5 docs | `0a5da58`→`b1d015b` |
+| 2026-04-16 | Codex | Stabilized the launcher MVP, restored a clean sample dispatch state, added launcher regressions, built a repo-run PySide6 desktop control plane MVP, and verified local pytest/validate/sprint-ready/desktop smoke | pending commit |

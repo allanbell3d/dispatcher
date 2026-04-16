@@ -24,7 +24,9 @@ build/
 # ── Temp & swap files ─────────────────────────
 .omc/
 .pytest_tmp/
+.pytest_tmp*
 .pytest_cache/
+.tmp_*
 pytest-cache-files-*/
 .orchestrator/audit.log
 .orchestrator/logs/*.log

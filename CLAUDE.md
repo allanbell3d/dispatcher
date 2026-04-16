@@ -1,7 +1,7 @@
 # Dispatcher — Claude Code Instructions
 
-**Version:** 0.1.10
-**Spec:** `docs/architecture/MASTER_SPECS_MERGED.md` v2.4
+**Version:** 0.1.14+
+**Spec:** `docs/architecture_frozen/MASTER_SPECS_MERGED.md` v2.4 (historical reference)
 
 ## What This Is
 
@@ -20,7 +20,7 @@ dispatcher/
 ├── .orchestrator/          engine-private state (config, tasks, plans, halts, logs, verdicts)
 ├── dispatch/               per-agent: gate-ralph/, gate-architect/, etc. → inbox/outbox/reports/done/archive
 ├── agents/profiles/        coordinated (gate-*/) and standalone agent profiles
-├── docs/architecture/      canonical specs (MASTER_SPECS_MERGED, KISS)
+├── docs/architecture_frozen/ historical specs and design references
 ├── docs_dev/               reviews, plans, ref docs, specs_frozen/, legacy artifacts
 ├── memory/                 per-agent session memory
 └── mcp-server/             frozen — not wired
@@ -30,7 +30,7 @@ dispatcher/
 
 | What | Where |
 |------|-------|
-| Master spec | `docs/architecture/MASTER_SPECS_MERGED.md` |
+| Master spec (historical) | `docs/architecture_frozen/MASTER_SPECS_MERGED.md` |
 | KISS rules | `docs_dev/specs_frozen/MASTER_KISS_follow_Allways_spec.md` |
 | Hook guide | `docs_dev/specs_frozen/HOOK_SYSTEM_ORCHESTRATOR_GUIDE.md` |
 | Launcher spec | `docs_dev/specs_frozen/LAUNCHER_SPEC.md` |
@@ -59,9 +59,16 @@ Halt flags are `.flag` files in `.orchestrator/halts/`.
 - `dispatch/<gate-name>/inbox/` = full gate-prefixed folder
 - No `strip_gate_prefix()` — delete if found
 
-## Known Issues (as of 0.1.10)
+## Current Verified State
 
-The codebase has 14 verified issues blocking production use. The #1 blocker is the sys.path bootstrap — `parents[0]` should be `parents[1]` in all hooks/ and scripts/. See [STATE.md](STATE.md) for the full fix list.
+Local verification currently passes for:
+- `python -m pytest -q`
+- `python scripts/doctor.py .`
+- `python scripts/validate.py .`
+- `python scripts/sprint_ready.py .`
+- `pwsh -NoProfile -File bin/orch_launcher.ps1 -DryRun`
+
+The old bootstrap/import blocker is no longer the active top issue. The remaining risk is operator-surface completeness and live sprint proof on a real project.
 
 ## Commands
 
@@ -78,8 +85,9 @@ python scripts/install_hooks.py --all
 # Sprint status
 python scripts/orchestratorctl.py status .
 
-# Launch GUI
-powershell -File bin/orch_launcher.ps1
-```
+# Launch PowerShell operator UI
+pwsh -NoProfile -File bin/orch_launcher.ps1
 
-Note: all Python commands currently fail with ModuleNotFoundError (bootstrap issue #1).
+# Launch repo-run desktop control plane
+python -m desktop_app.main
+```

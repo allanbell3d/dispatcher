@@ -73,6 +73,14 @@ The launcher:
 5. Optionally launches Claude Code in each terminal
 6. Dispatches first task from the plan
 
+Desktop control plane (repo-run MVP):
+
+```powershell
+python -m desktop_app.main
+```
+
+The desktop app uses the same project state and engine scripts but presents the controls in a PySide6 tabbed UI.
+
 ## 6. During a Sprint
 
 The watcher handles everything automatically:

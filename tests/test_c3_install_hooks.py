@@ -34,8 +34,8 @@ _CONFIG = {
         "logs": ".orchestrator/logs",
     },
     "agents": [
-        {"name": "gate-ralph", "executor": True},
-        {"name": "gate-architect", "executor": False},
+        {"name": "gate-ralph", "executor": True, "roles": ["coder"]},
+        {"name": "gate-architect", "executor": False, "roles": ["reviewer"]},
     ],
     "gate": {
         "protected_branches": ["dev", "main"],
@@ -106,7 +106,7 @@ def test_inventory_includes_both_inbox_suffixes_and_executor_hooks():
     non_exec_pre = inventory_non_exec["hooks"]["PreToolUse"]
     non_exec_post = inventory_non_exec["hooks"]["PostToolUse"]
     assert not any("check_gate" in hook["command"] for entry in non_exec_pre for hook in entry["hooks"])
-    assert not any("monitor_ingest" in hook["command"] for entry in non_exec_post for hook in entry["hooks"])
+    assert any("monitor_ingest" in hook["command"] for entry in non_exec_post for hook in entry["hooks"])
 
 
 def test_inventory_prefers_configured_shared_engine_root_for_hook_commands():

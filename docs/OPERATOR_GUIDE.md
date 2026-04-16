@@ -42,6 +42,12 @@ Primary entry point:
 pwsh -NoProfile -File bin/orch_launcher.ps1
 ```
 
+Desktop entry point (repo-run MVP):
+
+```powershell
+python -m desktop_app.main
+```
+
 The launcher is the operator control panel for:
 
 - deploy/install actions
@@ -51,6 +57,8 @@ The launcher is the operator control panel for:
 - agent session launch
 - status views
 - runtime hook toggles
+
+The desktop app is a repo-run adjunct surface for the same workflows. It currently covers dashboard, sprint controls, agent/session actions, task resume/override, hook controls, logs, reviewer presets, settings backup/restore, sprint mode, folder override, and project switching. Use the PowerShell launcher when you need the legacy operator path; use the desktop app when you want a tabbed control plane.
 
 `bin/launch.ps1` and `bin/launch.sh` are legacy fossils, not the preferred operator path.
 
