@@ -80,4 +80,4 @@
 | 2026-04-14 | Codex | Split install validation from sprint preflight with `sprint_ready.py`, launcher action, and operator doc updates | pending commit |
 | 2026-04-14 | Codex | Executed the dispatcher parallel plan pack across docs governance, artifact library, role/init refresh, and plan-ingest normalization; verified targeted pytest and dispatch smoke coverage | `daecd3c`→`06b18c6` |
 | 2026-04-14 | Codex | Consolidated dispatcher logging + monitor streaming around session JSONL tailing, canonical parse/render flow, durable trace logging, reviewer-secondary routing, and tested Wave 5 docs | `0a5da58`→`b1d015b` |
-| 2026-04-16 | Codex | Stabilized the launcher MVP, restored a clean sample dispatch state, added launcher regressions, built a repo-run PySide6 desktop control plane MVP, and verified local pytest/validate/sprint-ready/desktop smoke | pending commit |
+| 2026-04-16 | Codex | Stabilized the launcher MVP, restored a clean sample dispatch state, added launcher regressions, built a repo-run PySide6 desktop control plane MVP, and verified local pytest/validate/sprint-ready/desktop smoke | `e371d5b` |
